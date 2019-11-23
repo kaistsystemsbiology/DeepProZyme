@@ -1,0 +1,4 @@
+*.ipynb
+Dataset/
+*.log
+*.pyc
