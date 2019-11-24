@@ -107,7 +107,7 @@ class DeepEC(nn.Module):
 
 class DeepEC_multitask(nn.Module):
     def __init__(self, out_features1, out_features2):
-        super(DeepEC, self).__init__()
+        super(DeepEC_multitask, self).__init__()
         self.cnn0 = CNN0()
         self.fc1 = nn.Linear(in_features=128*3, out_features=out_features1)
         self.fc2 = nn.Linear(in_features=128*3, out_features=out_features2)

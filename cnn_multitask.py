@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from process_data import readFasta, deleteLowConf, \
+from process_data import read_EC_Fasta, \
                          getExplainedEC, getExplainedEC_short, \
                          getExplainableData, convertECtoLevel3
 
@@ -42,7 +42,7 @@ num_cpu = 4
 torch.set_num_threads(num_cpu)
 
 # parameters
-device = 'cuda:0' # The specific gpu I used for training. Convert the device to your own gpu
+device = 'cuda:3' # The specific gpu I used for training. Convert the device to your own gpu
 num_epochs = 30 # Number of maximum epochs
 batch_size = 32 # Batch size for the training/validation data
 learning_rate = 1e-3
@@ -58,29 +58,33 @@ lf_data_file = './Dataset/low_conf_protein_seq.txt'
 loss_graph_file = 'CNN_multitask_loss_fig.png'
 
 
-id2seq_train, id2ec_train = readFasta(train_data_file)
-id2seq_val, id2ec_val = readFasta(val_data_file)
-id2seq_test, id2ec_test = readFasta(test_data_file)
-id2seq_lf, id2ec_lf = readFasta(lf_data_file)
+train_data_file = './Dataset/ec_train_seq.fasta'
+val_data_file = './Dataset/ec_valid_seq.fasta'
+test_data_file = './Dataset/ec_test_seq.fasta'
 
-deleteLowConf(id2seq_train, id2ec_train, id2ec_lf)
-deleteLowConf(id2seq_val, id2ec_val, id2ec_lf)
-deleteLowConf(id2seq_test, id2ec_test, id2ec_lf)
+loss_graph_file = 'CNN2_loss_fig.png'
 
-explainECs = getExplainedEC(id2ec_train, id2ec_val, id2ec_test)
 
-train_seqs, train_ecs = getExplainableData(id2seq_train, id2ec_train, explainECs)
-val_seqs, val_ecs = getExplainableData(id2seq_val, id2ec_val, explainECs)
-test_seqs, test_ecs = getExplainableData(id2seq_test, id2ec_test, explainECs)
+train_seqs, train_ecs = read_EC_Fasta(train_data_file)
+val_seqs, val_ecs = read_EC_Fasta(val_data_file)
+test_seqs, test_ecs = read_EC_Fasta(test_data_file)
 
 len_train_seq = len(train_seqs)
 len_valid_seq = len(val_seqs)
 len_test_seq = len(test_seqs)
 
 logging.info(f'Number of sequences used- Train: {len_train_seq}')
-logging.info(f'Validation: {len_valid_seq}')
-logging.info(f'Test: {len_test_seq}')
+logging.info(f'Number of sequences used- Validation: {len_valid_seq}')
+logging.info(f'Number of sequences used- Test: {len_test_seq}')
 
+
+explainECs = []
+for ec_data in [train_ecs, val_ecs, test_ecs]:
+    for ecs in ec_data:
+        for each_ec in ecs:
+            if each_ec not in explainECs:
+                explainECs.append(each_ec)
+explainECs.sort()
 
 
 explainECs_short = getExplainedEC_short(explainECs)
@@ -95,7 +99,6 @@ trainDataset = ECDataset_multitask(train_seqs, \
 valDataset = ECDataset_multitask(val_seqs, \
                                  val_ecs, val_ecs_short, 
                                  explainECs, explainECs_short)
-
 testDataset = ECDataset_multitask(test_seqs, \
                                   test_ecs, test_ecs_short,
                                   explainECs, explainECs_short)
@@ -128,4 +131,4 @@ draw(avg_train_losses_2, avg_valid_losses_2, file_name='loss_for_EC3.png')
 ckpt = torch.load(checkpt_file)
 model.load_state_dict(ckpt['model'])
 
-precision, recall, f1 = evalulate_model(model, testDataloader, device)
+precision, recall, f1 = evalulate_model_multitask(model, testDataloader, device, alpha=alpha)

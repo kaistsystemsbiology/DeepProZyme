@@ -19,7 +19,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
 stream_handler = logging.StreamHandler()
-file_handler = logging.FileHandler('DeepEC_evaluation.log', 'w')
+file_handler = logging.FileHandler('DeepEC_evaluation_cuda2.log', 'w')
 file_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 logger.addHandler(file_handler)
@@ -37,7 +37,7 @@ torch.set_num_threads(num_cpu)
 
 
 # parameters
-device = 'cuda:1'
+device = 'cuda:0'
 batch_size = 32 # Batch size for the training/validation data
 
 checkpt_file_cnn2 = 'checkpoint_CNN2.pt'
@@ -82,4 +82,4 @@ cnn3.load_state_dict(\
         torch.load(checkpt_file_cnn3, map_location=device)['model'])
 
 
-evalulate_deepEC(cnn2, cnn3, testDataloader, test_seqs, explainECs, explainECs_short, device)
+evalulate_deepEC(cnn2, cnn3, testDataloader, explainECs, explainECs_short, device)

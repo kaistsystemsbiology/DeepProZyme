@@ -152,13 +152,18 @@ def train_model_multitask(model, optimizer, criterion, device,
     train_losses_2 = []
 
     valid_losses = []
+    valid_losses_1 = []
+    valid_losses_2 = []
 
     avg_train_losses = []
     avg_train_losses_1 = []
     avg_train_losses_2 = []
 
     avg_valid_losses = []
+    avg_valid_losses_1 = []
+    avg_valid_losses_2 = []
     
+    logging.info('Training start')
     for epoch in range(n_epochs):
         model.train() # training session with train dataset
         for batch, (data, label1, label2) in enumerate(train_loader):
@@ -187,9 +192,8 @@ def train_model_multitask(model, optimizer, criterion, device,
 
         model.eval() # validation session with validation dataset
         with torch.no_grad():
-            for data, label in valid_loader:
+            for data, label1, label2 in valid_loader:
                 data = data.type(torch.FloatTensor)
-
                 label1 = label1.type(torch.FloatTensor)
                 label2 = label2.type(torch.FloatTensor)
                 data = data.to(device)
@@ -210,7 +214,7 @@ def train_model_multitask(model, optimizer, criterion, device,
             valid_loss_1 = np.average(valid_losses_1)
             avg_valid_losses_1.append(valid_loss_1)
             valid_loss_2 = np.average(valid_losses_2)
-            avg_valid_losses_1.append(valid_loss_2)
+            avg_valid_losses_2.append(valid_loss_2)
         
         train_losses = []
         train_losses_1 = []
@@ -225,6 +229,7 @@ def train_model_multitask(model, optimizer, criterion, device,
             logging.info('Early stopping')
             break
             
+    logging.info('Training end')
     return model, avg_train_losses, avg_valid_losses, avg_train_losses_1, avg_valid_losses_1, avg_train_losses_2, avg_valid_losses_2
 
 
@@ -258,8 +263,8 @@ def evalulate_model(model, test_loader, device):
 def evalulate_model_multitask(model, test_loader, device, alpha=10):
     model.eval()
     with torch.no_grad():
-        y_true = torch.Tensor().to(device)
-        y_pred = torch.Tensor().to(device)
+        y_pred1 = torch.Tensor().to(device)
+        y_pred2 = torch.Tensor().to(device)
         for batch, (data, label1, label2) in enumerate(test_loader):
             data = data.type(torch.FloatTensor)
             label1 = label1.type(torch.FloatTensor)
@@ -269,18 +274,102 @@ def evalulate_model_multitask(model, test_loader, device, alpha=10):
             label2 = label2.to(device)
 
             output1, output2 = model(data)
-            prediction = output > 0.5
-            prediction = prediction.float()
+            prediction1 = output1 > 0.5
+            prediction1 = prediction1.float()
+            prediction2 = output2 > 0.5
+            prediction2 = prediction2.float()
             
-            y_true = torch.cat((y_true, label))
-            y_pred = torch.cat((y_pred, prediction))
+            y_pred1 = torch.cat((y_pred1, prediction1))
+            y_pred2 = torch.cat((y_pred1, prediction2))
 
-        precision = precision_score(y_true.cpu(), y_pred.cpu(), average='macro')
-        recall = recall_score(y_true.cpu(), y_pred.cpu(), average='macro')
-        f1 = f1_score(y_true.cpu(), y_pred.cpu(), average='macro')
+        logging.info('Prediction Ended on test dataset')
+        ec2ec_map = getEC32EC4map(explainECs_short, explainECs).to(device)
+        prediction = getCommonECs(y_pred1, y_pred2, ec2ec_map, device)
+        prediction = prediction.cpu().numpy()
+        logging.info('Got common ECs from the prediction')
+
+        y_pred1 = 0
+        y_pred2 = 0
+
+        y_true = torch.Tensor().to(device)
+        for _, label in test_loader:
+            label = label.type(torch.FloatTensor).to(device)
+            y_true = torch.cat((y_true, label))
+        y_true = y_true.cpu()
+        logging.info('Label were collected in a single tensor')
+
+        precision = precision_score(y_true, prediction, average='macro')
+        recall = recall_score(y_true, prediction, average='macro')
+        f1 = f1_score(y_true, prediction, average='macro')
 
         logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     return precision, recall, f1
+
+
+def evalulate_deepEC(model1, model2, test_loader, explainECs, explainECs_short, device):
+    with torch.no_grad():
+        model1.eval() # CNN2
+        model2.eval() # CNN3
+        y_pred1 = torch.Tensor().to(device)
+        y_pred2 = torch.Tensor().to(device)
+        logging.info('Prediction starts on test dataset')
+        for batch, (data, _) in enumerate(test_loader):
+            data = data.type(torch.FloatTensor)
+            data = data.to(device)
+            output1 = model1(data)
+            output2 = model2(data)
+
+            prediction1 = output1 > 0.5
+            prediction1 = prediction1.float()
+            prediction2 = output2 > 0.5
+            prediction2 = prediction2.float()
+
+            y_pred1 = torch.cat((y_pred1, prediction1))
+            y_pred2 = torch.cat((y_pred2, prediction2))
+
+
+        logging.info('Prediction Ended on test dataset')
+        ec2ec_map = getEC32EC4map(explainECs_short, explainECs).to(device)
+        prediction = getCommonECs(y_pred1, y_pred2, ec2ec_map, device)
+        prediction = prediction.cpu().numpy()
+        logging.info('Got common ECs from the prediction')
+
+        y_pred1 = None
+        y_pred2 = None
+        
+        y_true = torch.Tensor().to(device)
+        for _, label in test_loader:
+            label = label.type(torch.FloatTensor).to(device)
+            y_true = torch.cat((y_true, label))
+        y_true = y_true.cpu()
+        logging.info('Label were collected in a single tensor')
+
+        precision = precision_score(y_true, prediction, average='macro')
+        recall = recall_score(y_true, prediction, average='macro')
+        f1 = f1_score(y_true, prediction, average='macro')
+
+        logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    return precision, recall, f1
+
+
+def getEC32EC4map(explainECs_short, explainECs):
+    result = torch.zeros((len(explainECs), len(explainECs_short)))
+    for ec4_ind, ec4 in enumerate(explainECs):
+        tmp = torch.zeros(len(explainECs_short))
+        for i, ec3 in enumerate(explainECs_short):
+            if ec4.startswith(ec3):
+                tmp[i] = 1
+        result[ec4_ind] = tmp
+    return result
+
+
+def getCommonECs(ec3_pred, ec4_pred, ec2ec_map, device):
+    common_pred = torch.zeros(ec4_pred.shape).to(device)
+    for i in range(len(ec4_pred)):
+        ec4_activemap = torch.matmul(ec2ec_map, ec3_pred[i])
+        common_EC = ec4_activemap * ec4_pred[i]
+        common_pred[i] = common_EC
+    return common_pred
 
 
 def calculateTestAccuracy(model, testDataloader, device):
@@ -308,93 +397,3 @@ def calculateTestAccuracy(model, testDataloader, device):
         test_acc /= n
         logging.info('Test accuracy: %0.6f'%(test_acc.item()))
     return test_acc.item()
-
-
-def evalulate_deepEC(model1, model2, test_loader, test_dataset, explainECs, explainECs_short, device):
-    with torch.no_grad():
-        model1.eval() # CNN2
-        model2.eval() # CNN3
-        y_pred1 = torch.Tensor().to(device)
-        y_pred2 = torch.Tensor().to(device)
-        logging.info('Prediction starts on test dataset')
-        for batch, (data, _) in enumerate(test_loader):
-            data = data.type(torch.FloatTensor)
-            data = data.to(device)
-            output1 = model1(data)
-            output2 = model2(data)
-
-            prediction1 = output1 > 0.5
-            prediction1 = prediction1.float()
-            prediction2 = output2 > 0.5
-            prediction2 = prediction2.float()
-
-            y_pred1 = torch.cat((y_pred1, prediction1))
-            y_pred2 = torch.cat((y_pred2, prediction2))
-
-        logging.info('Prediction Ended on test dataset')
-        prediction = getCommonECs(y_pred1.cpu(), y_pred2.cpu(),
-                                explainECs, explainECs_short)
-        prediction = prediction.numpy()
-        logging.info('Got common ECs from the prediction')
-
-        y_true = torch.Tensor()
-        for _, label in test_loader:
-            label = label.type(torch.FloatTensor)
-            y_true = torch.cat((y_true, label))
-        logging.info('Label were collected in a single tensor')
-
-        precision = precision_score(y_true, prediction, average='macro')
-        recall = recall_score(y_true, prediction, average='macro')
-        f1 = f1_score(y_true, prediction, average='macro')
-
-        logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
-    return precision, recall, f1
-
-
-def convert2onehot_EC(onehot_ec, ec_list):
-    predicted_ecs = []
-    for i, item in enumerate(onehot_ec):
-        if item > 0:
-            predicted_ecs.append(ec_list[i])
-    return predicted_ecs
-
-
-def comparePredictions(result_3, result_4):
-    tmp = []
-    for item_3 in result_3:
-        p = re.compile(item_3)
-        for item_4 in result_4:
-            if p.match(item_4):
-                tmp.append(item_4)
-    tmp = list(set(tmp))
-    return tmp
-
-
-def getCommonECs(output_3, output_4, explainECs, explainECs_short):
-    result = []
-    ec_map = getECmap(explainECs)
-    for i in range(len(output_3)):
-        ec_in_3 = convert2onehot_EC(output_3[i], explainECs_short)
-        ec_in_4 = convert2onehot_EC(output_4[i], explainECs)
-        common_ec = comparePredictions(ec_in_3, ec_in_4)
-        common_ec = convertEC2onehot(common_ec, ec_map)
-        result.append(common_ec)
-    return torch.Tensor(result)
-
-
-def getECmap(explainECs):
-    ec_vocab = list(set(explainECs))
-    ec_vocab.sort()
-    map = {}
-    for i, ec in enumerate(ec_vocab):
-        baseArray = np.zeros(len(ec_vocab))
-        baseArray[i] = 1
-        map[ec] = baseArray
-    return map
-
-
-def convertEC2onehot(EC, ec_map):
-        single_onehot = np.zeros(len(ec_map))
-        for each_EC in EC:
-            single_onehot += ec_map[each_EC]
-        return single_onehot

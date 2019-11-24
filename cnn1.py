@@ -122,15 +122,15 @@ model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 criterion = nn.BCELoss()
 
-# model, avg_train_losses, avg_valid_losses = train_model(
-#     model, optimizer, criterion, device,
-#     batch_size, patience, num_epochs, 
-#     trainDataloader, validDataloader,
-#     checkpt_file
-#     )
+model, avg_train_losses, avg_valid_losses = train_model(
+    model, optimizer, criterion, device,
+    batch_size, patience, num_epochs, 
+    trainDataloader, validDataloader,
+    checkpt_file
+    )
 
 
-# draw(avg_train_losses, avg_valid_losses, file_name=loss_graph_file)
+draw(avg_train_losses, avg_valid_losses, file_name=loss_graph_file)
 
 ckpt = torch.load(checkpt_file)
 model.load_state_dict(ckpt['model'])

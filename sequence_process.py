@@ -84,21 +84,3 @@ with open('./Dataset/ec_test_seq.fasta', 'w') as fp:
         cnt += 1
         ecs = ';'.join(ec_list)
         fp.write(f'>seq{cnt}\t{ecs}\n{seq}\n')
-
-# with open('./Dataset/ec_train_seq.fasta', 'w') as fp:
-#     for seqID in id2seq_train:
-#         ecs = ';'.join(id2ec_train[seqID])
-#         sequence = id2seq_train[seqID]
-#         fp.write(f'>{seqID}\t{ecs}\n{sequence}\n')
-
-# with open('./Dataset/ec_valid_seq.fasta', 'w') as fp:
-#     for seqID in id2seq_val:
-#         ecs = ';'.join(id2ec_val[seqID])
-#         sequence = id2seq_val[seqID]
-#         fp.write(f'>{seqID}\t{ecs}\n{sequence}\n')
-
-# with open('./Dataset/ec_test_seq.fasta', 'w') as fp:
-#     for seqID in id2seq_test:
-#         ecs = ';'.join(id2ec_test[seqID])
-#         sequence = id2seq_test[seqID]
-#         fp.write(f'>{seqID}\t{ecs}\n{sequence}\n')

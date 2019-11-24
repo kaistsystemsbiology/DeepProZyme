@@ -150,5 +150,3 @@ def convertECtoLevel3(ecs):
                 tmp.append(tmp_ec)
         ecs_short.append(tmp)
     return ecs_short
-
-
