@@ -43,65 +43,21 @@ class CNN0(nn.Module):
         return x   
 
 
-class CNN1(nn.Module):
-    def __init__(self):
-        super(CNN1, self).__init__()
-        self.cnn0 = CNN0()
-        self.fc1 = nn.Linear(in_features=128*3, out_features=1)
-        nn.init.kaiming_uniform_(self.fc1.weight, nonlinearity='relu')
-        
-        
-    def forward(self, x):
-        x = self.cnn0(x)
-        x = x.view(-1, 128*3)
-        x = self.out_act(self.fc1(x))
-        return x   
-
-
-class CNN2(nn.Module):
-    def __init__(self):
-        super(CNN2, self).__init__()
-        self.cnn0 = CNN0()
-        self.fc2 = nn.Linear(in_features=128*3, out_features=216)
-        nn.init.kaiming_uniform_(self.fc2.weight, nonlinearity='relu')
-        
-        
-    def forward(self, x):
-        x = self.cnn0(x)
-        x = x.view(-1, 128*3)
-        x = self.out_act(self.fc2(x))
-        return x   
-
-
-class CNN3(nn.Module):
-    def __init__(self):
-        super(CNN3, self).__init__()
-        self.cnn0 = CNN0()
-        self.fc3 = nn.Linear(in_features=128*3, out_features=2531)
-        nn.init.kaiming_uniform_(self.fc3.weight, nonlinearity='relu')
-        
-        
-    def forward(self, x):
-        x = self.cnn0(x)
-        x = x.view(-1, 128*3)
-        x = self.out_act(self.fc3(x))
-        return x
-
-
-
 class DeepEC(nn.Module):
     def __init__(self, out_features):
         super(DeepEC, self).__init__()
         self.cnn0 = CNN0()
         self.fc = nn.Linear(in_features=128*3, out_features=out_features)
-        nn.init.kaiming_uniform_(self.fc.weight, nonlinearity='relu')
+        # nn.init.kaiming_uniform_(self.fc.weight, nonlinearity='relu')
+        nn.init.normal_(self.fc.weight)
+        self.bn1 = nn.BatchNorm1d(num_features=out_features)
         self.out_act = nn.Sigmoid()
         
         
     def forward(self, x):
         x = self.cnn0(x)
         x = x.view(-1, 128*3)
-        x = self.out_act(self.fc(x))
+        x = self.out_act(self.bn1(self.fc(x)))
         return x
 
 
@@ -111,13 +67,17 @@ class DeepEC_multitask(nn.Module):
         self.cnn0 = CNN0()
         self.fc1 = nn.Linear(in_features=128*3, out_features=out_features1)
         self.fc2 = nn.Linear(in_features=128*3, out_features=out_features2)
-        nn.init.kaiming_uniform_(self.fc1.weight, nonlinearity='relu')
-        nn.init.kaiming_uniform_(self.fc2.weight, nonlinearity='relu')
+        # nn.init.kaiming_uniform_(self.fc1.weight, nonlinearity='relu')
+        # nn.init.kaiming_uniform_(self.fc2.weight, nonlinearity='relu')
+        nn.init.normal_(self.fc1.weight)
+        nn.init.normal_(self.fc2.weight)
+        self.bn1 = nn.BatchNorm1d(num_features=out_features1)
+        self.bn2 = nn.BatchNorm1d(num_features=out_features2)
         self.out_act = nn.Sigmoid()
         
         
     def forward(self, x):
         x = self.cnn0(x).view(-1, 128*3)
-        x1 = self.out_act(self.fc1(x))
-        x2 = self.out_act(self.fc2(x))
+        x1 = self.out_act(self.bn1(self.fc1(x)))
+        x2 = self.out_act(self.bn2(self.fc2(x)))
         return x1, x2

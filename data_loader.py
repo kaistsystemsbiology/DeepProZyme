@@ -182,11 +182,11 @@ class ECDataset_multitask(Dataset):
         x = self.data_X[idx]
         x = self.convert2onehot_seq(x)
 
-        y1 = self.data_Y_4[idx]
-        y1 = self.convert2onehot_EC(y1, self.map_EC_4)
+        y1 = self.data_Y_3[idx]
+        y1 = self.convert2onehot_EC(y1, self.map_EC_3)
 
-        y2 = self.data_Y_3[idx]
-        y2 = self.convert2onehot_EC(y2, self.map_EC_3)
+        y2 = self.data_Y_4[idx]
+        y2 = self.convert2onehot_EC(y2, self.map_EC_4)
         
         x = x.reshape((1,) + x.shape)
         y1 = y1.reshape(-1)

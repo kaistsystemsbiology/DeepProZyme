@@ -1,60 +1,42 @@
-#Enzymatic Data Integration into GEM of Escherichia coli
-#Simultaneous prediction of metabolic genes/reactions for metabolic engineering
-
+#DeepEC reconstruction
 ##Procedure
 
 **Note**: 
-This source code was developed in Linux, and has been tested in Ubuntu 16.06 with Python 2.7.
-It should be noted that Python 3.7 is currently not supported.
+This source code was developed in Linux, and has been tested in Ubuntu 16.06 with Python 3.7.
 
 1. Clone the repository
 
-        git clone https://anlito@bitbucket.org/anlito/engem.git
+        git clone https://anlito@bitbucket.org/anlito/deepec_2.git
 
 2. Create and activate virtual environment
 
-        virtualenv venv
-        source venv/bin/activate
-
-    or you can use pre-built anaconda environemnt
-
         conda env create -f environment.yml
-        conda activate engem_env
+        conda activate torch_env
 
-3. Install gurobipy
-
-    In our case, we installed gurobipy in the root of a server, and created its symbolic link in venv:
-
-        ln -s /usr/local/lib/python2.7/dist-packages/gurobipy/ $HOME/Engem/venv/lib/python2.7/site-packages/
-
-        ln -s /usr/local/lib/python3.6/dist-packages/gurobipy ../../anaconda3/envs/engem/lib/python2.7/site-packages/
-
-4. Change the directory
-
-        cd engem
-
-5. Install packages
-
-    If you created the environment by conda, you can skip this step
-
-        pip install pip --upgrade
-        pip install -r requirements.txt
 
 ##Example
 
-- Run modeling code with retrieving relavant data
 
-        python anlito.py -o ./output -i ./input_data/iML1515.xml -v versionX -r
+- Train CNN1
 
-- Run modeling code without retrieving relavant data
+        python cnn1_training.py -o ./output/cnn1 -g cuda:0 -e 30 -b 64 -r 1e-4 -p 3 -c checkpoint.pt 
 
-        python anlito.py -o ./output -i ./input_data/iML1515.xml -v versionX
+- Train CNN2
 
-- Run analytic codes for constructed model
+        python cnn_training.py -o ./output/cnn2 -g cuda:0 -e 30 -b 64 -r 1e-4 -p 3 -c checkpoint.pt -third True
 
-        chmod 773 ./AnalysisEcoMBEL.sh
-        ./AnalysisEcoMBEL.sh
+- Train CNN3
 
-- Run targeting algorithm
+        python cnn_training.py -o ./output/cnn3 -g cuda:0 -e 30 -b 64 -r 1e-4 -p 3 -c checkpoint.pt -third False
 
-        python runTargetingSimulation.py -o ./output/targeting_result/ -i ./output/REDU_models/REDU_iML1515_20190906_MILP_relieve05_1.xml -t EX_ac_e -c 8 -n 5 -k 1 -d 1 -a 1
+- Train CNN_multitask
+
+        python cnn_multitask.py -o ./output/cnn_multitask -g cuda:3 -e 30 -b 64 -r 1e-3 -p 3 -c checkpoint.pt
+
+- Evaluate DeepEC
+
+        python deepec_evaluate.py -o ./output/deepec_evaluation -g cuda:0 -b 1024 _c_cnn1 checkpoint_CNN1.pt -c_cnn1 checkpoint_CNN1.pt -c_cnn2 checkpoint_CNN2.pt -c_cnn3 checkpoint_CNN3.pt
+
+- Evaluate DeepEC_multitask
+
+        python deepec_multitask_evaluate.py -o ./output/deepec_multi_evaluation -g cuda:0 -b 1024 _c_cnn1 checkpoint_CNN1.pt -c_cnn2 checkpoint_CNN_multi.pt

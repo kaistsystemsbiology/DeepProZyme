@@ -150,3 +150,45 @@ def convertECtoLevel3(ecs):
                 tmp.append(tmp_ec)
         ecs_short.append(tmp)
     return ecs_short
+
+
+def split_EnzNonenz(enzyme_seqs, nonenzyme_seqs, seed_num=False):
+    enzyme_train, enzyme_test = train_test_split(
+        enzyme_seqs, test_size=0.1, 
+        shuffle=True, random_state=seed_num
+        )
+
+    nonenzyme_train, nonenzyme_test = train_test_split(
+        nonenzyme_seqs, test_size=0.1, 
+        shuffle=True, random_state=seed_num
+        )
+
+    enzyme_train, enzyme_valid = train_test_split(
+        enzyme_train, test_size=1/9, 
+        shuffle=True, random_state=seed_num
+        )
+
+    nonenzyme_train, nonenzyme_valid = train_test_split(
+        nonenzyme_train, test_size=1/9, 
+        shuffle=True, random_state=seed_num
+        )
+
+    train_inputs = np.array(enzyme_train + nonenzyme_train)
+    train_labels = np.hstack(
+        (np.ones(len(enzyme_train)), np.zeros(len(nonenzyme_train)))
+        )
+
+    valid_inputs = np.array(enzyme_valid + nonenzyme_valid)
+    valid_labels = np.hstack(
+        (np.ones(len(enzyme_valid)), np.zeros(len(nonenzyme_valid)))
+        )
+
+    test_inputs = np.array(enzyme_test + nonenzyme_test)
+    test_labels = np.hstack(
+        (np.ones(len(enzyme_test)), np.zeros(len(nonenzyme_test)))
+        )
+
+    train_data = (train_inputs, train_labels)
+    valid_data = (valid_inputs, valid_labels)
+    test_data = (test_inputs, test_labels)
+    return train_data, valid_data, test_data

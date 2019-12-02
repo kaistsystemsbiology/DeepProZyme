@@ -1,4 +1,5 @@
 # import
+import os
 import random
 import logging
 # import basic python packages
@@ -17,118 +18,146 @@ from process_data import read_EC_Fasta, \
 
 from data_loader import ECDataset_multitask
 
-from utils import EarlyStopping, draw,\
-                  train_model_multitask, evalulate_model
+from utils import argument_parser, EarlyStopping, draw, save_losses,\
+                  train_model_multitask, evalulate_model_multitask
     
 from model import DeepEC_multitask
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
-stream_handler = logging.StreamHandler()
-file_handler = logging.FileHandler('CNN_multitask_training.log')
-file_handler.setFormatter(formatter)
-logger.addHandler(stream_handler)
-logger.addHandler(file_handler)
 
 
-seed_num = 123 # random seed for reproducibility
-torch.manual_seed(seed_num)
-random.seed(seed_num)
-torch.cuda.manual_seed_all(seed_num)
-np.random.seed(seed_num)
+if __name__ == '__main__':
+    parser = argument_parser()
+    options = parser.parse_args()
 
-num_cpu = 4
-torch.set_num_threads(num_cpu)
+    output_dir = options.output_dir
+    log_dir = options.log_dir
 
-# parameters
-device = 'cuda:3' # The specific gpu I used for training. Convert the device to your own gpu
-num_epochs = 30 # Number of maximum epochs
-batch_size = 32 # Batch size for the training/validation data
-learning_rate = 1e-3
-patience = 5
-alpha = 10
-checkpt_file = 'checkpoint_CNN_multitask.pt'
+    device = options.gpu
+    num_epochs = options.epoch
+    batch_size = options.batch_size
+    learning_rate = options.learning_rate
+    patience = options.patience
 
-train_data_file = './Dataset/7.train_gold_standard_seq.txt'
-val_data_file = './Dataset/7.val_gold_standard_seq.txt'
-test_data_file = './Dataset/7.test_gold_standard_seq.txt'
-lf_data_file = './Dataset/low_conf_protein_seq.txt'
+    checkpt_file = options.checkpoint
+    train_data_file = options.training_data
+    val_data_file = options.validation_data
+    test_data_file = options.test_data
 
-loss_graph_file = 'CNN_multitask_loss_fig.png'
+    third_level = options.third_level
+    alpha = options.alpha
 
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-train_data_file = './Dataset/ec_train_seq.fasta'
-val_data_file = './Dataset/ec_valid_seq.fasta'
-test_data_file = './Dataset/ec_test_seq.fasta'
+    stream_handler = logging.StreamHandler()
+    file_handler = logging.FileHandler(f'{output_dir}/{log_dir}')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
 
-loss_graph_file = 'CNN2_loss_fig.png'
+    seed_num = 123 # random seed for reproducibility
+    torch.manual_seed(seed_num)
+    random.seed(seed_num)
+    torch.cuda.manual_seed_all(seed_num)
+    np.random.seed(seed_num)
 
-
-train_seqs, train_ecs = read_EC_Fasta(train_data_file)
-val_seqs, val_ecs = read_EC_Fasta(val_data_file)
-test_seqs, test_ecs = read_EC_Fasta(test_data_file)
-
-len_train_seq = len(train_seqs)
-len_valid_seq = len(val_seqs)
-len_test_seq = len(test_seqs)
-
-logging.info(f'Number of sequences used- Train: {len_train_seq}')
-logging.info(f'Number of sequences used- Validation: {len_valid_seq}')
-logging.info(f'Number of sequences used- Test: {len_test_seq}')
+    num_cpu = 4
+    torch.set_num_threads(num_cpu)
 
 
-explainECs = []
-for ec_data in [train_ecs, val_ecs, test_ecs]:
-    for ecs in ec_data:
-        for each_ec in ecs:
-            if each_ec not in explainECs:
-                explainECs.append(each_ec)
-explainECs.sort()
+    logging.info(f'\nInitial Setting\
+                  \nEpoch: {num_epochs}\
+                  \tBatch size: {batch_size}\
+                  \tLearning rate: {learning_rate}\
+                  \tAlpha: {alpha}')
 
 
-explainECs_short = getExplainedEC_short(explainECs)
-train_ecs_short = convertECtoLevel3(train_ecs)
-val_ecs_short = convertECtoLevel3(val_ecs)
-test_ecs_short = convertECtoLevel3(test_ecs)
+    train_seqs, train_ecs = read_EC_Fasta(train_data_file)
+    val_seqs, val_ecs = read_EC_Fasta(val_data_file)
+    test_seqs, test_ecs = read_EC_Fasta(test_data_file)
 
 
-trainDataset = ECDataset_multitask(train_seqs, \
-                                  train_ecs, train_ecs_short, 
-                                  explainECs, explainECs_short)
-valDataset = ECDataset_multitask(val_seqs, \
-                                 val_ecs, val_ecs_short, 
-                                 explainECs, explainECs_short)
-testDataset = ECDataset_multitask(test_seqs, \
-                                  test_ecs, test_ecs_short,
-                                  explainECs, explainECs_short)
+    len_train_seq = len(train_seqs)
+    len_valid_seq = len(val_seqs)
+    len_test_seq = len(test_seqs)
 
-trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
-validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
-testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
+    logging.info(f'Number of sequences used- Train: {len_train_seq}')
+    logging.info(f'Number of sequences used- Validation: {len_valid_seq}')
+    logging.info(f'Number of sequences used- Test: {len_test_seq}')
 
 
-num_class4 = len(explainECs)
-num_class3 = len(explainECs_short)
-model = DeepEC_multitask(out_features1=num_class4, out_features2=num_class3)
-model = model.to(device)
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-criterion = nn.BCELoss()
-
-model, avg_train_losses, avg_valid_losses, avg_train_losses_1, avg_valid_losses_1, avg_train_losses_2, avg_valid_losses_2 = train_model_multitask(
-    model, optimizer, criterion, device,
-    batch_size, patience, num_epochs, 
-    trainDataloader, validDataloader,
-    checkpt_file, alpha
-    )
+    explainECs = []
+    for ec_data in [train_ecs, val_ecs, test_ecs]:
+        for ecs in ec_data:
+            for each_ec in ecs:
+                if each_ec not in explainECs:
+                    explainECs.append(each_ec)
+    explainECs.sort()
 
 
-draw(avg_train_losses, avg_valid_losses, file_name=loss_graph_file)
+    explainECs_short = getExplainedEC_short(explainECs)
+    train_ecs_short = convertECtoLevel3(train_ecs)
+    val_ecs_short = convertECtoLevel3(val_ecs)
+    test_ecs_short = convertECtoLevel3(test_ecs)
 
-draw(avg_train_losses_1, avg_valid_losses_1, file_name='loss_for_EC4.png')
-draw(avg_train_losses_2, avg_valid_losses_2, file_name='loss_for_EC3.png')
 
-ckpt = torch.load(checkpt_file)
-model.load_state_dict(ckpt['model'])
+    trainDataset = ECDataset_multitask(train_seqs, \
+                                    train_ecs, train_ecs_short, 
+                                    explainECs, explainECs_short)
+    valDataset = ECDataset_multitask(val_seqs, \
+                                    val_ecs, val_ecs_short, 
+                                    explainECs, explainECs_short)
+    testDataset = ECDataset_multitask(test_seqs, \
+                                    test_ecs, test_ecs_short,
+                                    explainECs, explainECs_short)
 
-precision, recall, f1 = evalulate_model_multitask(model, testDataloader, device, alpha=alpha)
+    trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
+    validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
+    testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
+
+
+    num_class4 = len(explainECs)
+    num_class3 = len(explainECs_short)
+    model = DeepEC_multitask(out_features1=num_class3, out_features2=num_class4)
+    model = model.to(device)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = nn.BCELoss()
+
+    model, avg_train_losses, avg_valid_losses, \
+           avg_train_losses_1, avg_valid_losses_1, \
+           avg_train_losses_2, avg_valid_losses_2 \
+           = train_model_multitask(model, optimizer, criterion, device,
+                                   batch_size, patience, num_epochs, 
+                                   trainDataloader, validDataloader,
+                                   f'{output_dir}/{checkpt_file}', alpha
+                                   )
+
+
+    loss_graph_file_EC3 = 'loss_for_EC3_lr4.png'
+    loss_graph_file_EC4 = 'loss_for_EC4_lr4.png'
+    loss_text_file_EC3 = 'loss_EC3.txt'
+    loss_text_file_EC4 = 'loss_EC4.txt'
+
+    save_losses(avg_train_losses, avg_valid_losses, \
+                output_dir=output_dir)
+    save_losses(avg_train_losses_1, avg_valid_losses_1, \
+                output_dir=output_dir, file_name=loss_text_file_EC3)
+    save_losses(avg_train_losses_2, avg_valid_losses_2, \
+                output_dir=output_dir, file_name=loss_text_file_EC4)
+
+    draw(avg_train_losses, avg_valid_losses, \
+        output_dir=output_dir)
+    draw(avg_train_losses_1, avg_valid_losses_1, \
+        output_dir=output_dir, file_name=loss_graph_file_EC3)
+    draw(avg_train_losses_2, avg_valid_losses_2, \
+        output_dir=output_dir, file_name=loss_graph_file_EC4)
+
+    ckpt = torch.load(f'{output_dir}/{checkpt_file}')
+    model.load_state_dict(ckpt['model'])
+
+    precision, recall, f1 = evalulate_model_multitask(model, testDataloader, \
+                                                     explainECs, explainECs_short, \
+                                                     device, alpha=alpha)

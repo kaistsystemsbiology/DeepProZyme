@@ -2,3 +2,9 @@
 Dataset/
 *.log
 *.pyc
+*.log
+*.icloud
+.ipynb_checkpoints/
+.DS_Store
+output/*
+*.pt
