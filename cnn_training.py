@@ -20,7 +20,7 @@ from data_loader import ECDataset
 from utils import argument_parser, EarlyStopping, \
                   draw, save_losses, train_model, evalulate_model
     
-from model import DeepEC
+from model import DeepEC, DeepEC_3, DeepEC_4
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -114,6 +114,8 @@ if __name__ == '__main__':
 
 
     model = DeepEC(out_features=len(explainECs))
+    # model = DeepEC_4(out_features=len(explainECs))
+    logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.BCELoss()
