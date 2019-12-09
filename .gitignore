@@ -9,3 +9,6 @@ Dataset/
 output/*
 *.pt
 cbe481/
+*.sh
+CBE481_training.py
+cbe481_training.sh
