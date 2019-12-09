@@ -20,9 +20,6 @@ from sklearn.metrics import roc_curve, auc, roc_auc_score
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 
-
-
-
 def argument_parser(version=None):
     def boolean_string(s):
         if s not in {'False', 'True'}:
@@ -137,7 +134,7 @@ def save_losses(avg_train_losses, avg_valid_losses, output_dir, file_name='losse
     with open(f'{output_dir}/{file_name}', 'w') as fp:
         fp.write('Epoch\tAverage_train_loss\tAverage_valid_loss\n')
         cnt = 0
-        for train_loss, valid_loss in zip(avg_train_losses, avg_train_losses):
+        for train_loss, valid_loss in zip(avg_train_losses, avg_valid_losses):
             cnt += 1
             fp.write(f'{cnt}\t{train_loss:9f}\t{valid_loss:9f}\n')
     return
