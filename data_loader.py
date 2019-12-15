@@ -5,15 +5,17 @@ from torch.utils.data import Dataset
 import numpy as np
 
 
-
 # create a data loading class for the use of pytorch
 # I put the one hot encoding in here
 class ECDataset(Dataset):
-    def __init__(self, data_X, data_Y, explainECs):
+    def __init__(self, data_X, data_Y, explainECs, pred=False):
+        self.pred = pred
         self.data_X = data_X
-        self.data_Y = data_Y
         self.map_AA = self.getAAmap()
-        self.map_EC = self.getECmap(explainECs)
+
+        if not pred:
+            self.data_Y = data_Y
+            self.map_EC = self.getECmap(explainECs)
         
     
     def __len__(self):
@@ -26,12 +28,11 @@ class ECDataset(Dataset):
                     'K', 'L', 'M', 'N', 
                     'P', 'Q', 'R', 'S',
                     'T', 'V', 'W', 'X', 
-                    'Y', '_']
+                    'Y']
         map = {}
         for i, char in enumerate(aa_vocab):
-            baseArray = np.zeros(len(aa_vocab)-1)
-            if char != '_':
-                baseArray[i] = 1
+            baseArray = np.zeros(len(aa_vocab))
+            baseArray[i] = 1
             map[char] = baseArray
         return map
     
@@ -47,11 +48,11 @@ class ECDataset(Dataset):
         return map
 
 
-    def convert2onehot_seq(self, single_seq):
-        single_onehot = []
-        for x in single_seq:
-            single_onehot.append(self.map_AA[x])
-        return np.asarray(single_onehot)
+    def convert2onehot_seq(self, single_seq, max_seq=1000):
+        single_onehot = np.zeros((max_seq, len(self.map_AA)))
+        for i, x in enumerate(single_seq):
+            single_onehot[i] = np.asarray(self.map_AA[x])
+        return single_onehot
     
     
     def convert2onehot_EC(self, EC):
@@ -65,11 +66,13 @@ class ECDataset(Dataset):
     def __getitem__(self, idx):
         x = self.data_X[idx]
         x = self.convert2onehot_seq(x)
+        x = x.reshape((1,) + x.shape)
+
+        if self.pred:
+            return x
 
         y = self.data_Y[idx]
         y = self.convert2onehot_EC(y)
-        
-        x = x.reshape((1,) + x.shape)
         y = y.reshape(-1)
         return x, y
 
