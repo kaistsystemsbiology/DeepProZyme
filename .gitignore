@@ -9,3 +9,5 @@ Dataset/
 output/*
 *.pt
 *.png
+attentions/
+attentions_third/
