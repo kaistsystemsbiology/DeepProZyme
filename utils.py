@@ -35,7 +35,7 @@ def argument_parser(version=None):
     parser.add_argument('-e', '--epoch', required=False, type=int,
                         default=30, help='Total epoch number')
     parser.add_argument('-b', '--batch_size', required=False, type=int,
-                        default=32, help='Total epoch number')
+                        default=32, help='Batch size')
     parser.add_argument('-r', '--learning_rate', required=False, type=float,
                         default=1e-3, help='Learning rate')
     parser.add_argument('-p', '--patience', required=False, type=int,
@@ -102,7 +102,8 @@ class EarlyStopping:
         ckpt = {'model':model.state_dict(),
                 'optimizer':optimizer.state_dict(),
                 'best_acc':self.best_score,
-                'epoch':epoch}
+                'epoch':epoch,
+                'explainECs':model.explainECs}
         torch.save(ckpt, self.save_name)
         self.val_loss_min = val_loss
 
@@ -284,11 +285,13 @@ def train_model_multitask(model, optimizer, criterion, device,
                  avg_train_losses_2.tolist(), avg_valid_losses_2.tolist()
 
 
-def evalulate_model(model, test_loader, device):
+def evalulate_model(model, test_loader, num_data, explainECs, device):
     model.eval() # training session with train dataset
     with torch.no_grad():
-        y_true = torch.Tensor().to(device)
-        y_pred = torch.Tensor().to(device)
+        y_pred = torch.zeros([num_data, len(explainECs)]).to(device)
+        y_true = torch.zeros([num_data, len(explainECs)]).to(device)
+        logging.info('Prediction starts on test dataset')
+        cnt = 0
         for batch, (data, label) in enumerate(test_loader):
             data = data.type(torch.FloatTensor)
             label = label.type(torch.FloatTensor)
@@ -298,8 +301,10 @@ def evalulate_model(model, test_loader, device):
             prediction = output > 0.5
             prediction = prediction.float()
 
-            y_true = torch.cat((y_true, label))
-            y_pred = torch.cat((y_pred, prediction))
+            y_pred[cnt:cnt+data.shape[0]] = prediction
+            y_true[cnt:cnt+data.shape[0]] = label
+            cnt += data.shape[0]
+        logging.info('Prediction Ended on test dataset')
 
         y_true = y_true.cpu().numpy()
         y_pred = y_pred.cpu().numpy()
@@ -526,3 +531,89 @@ def evalulate_model_multitask_whole(model0, model1, test_loader, num_data, expla
 
         logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     return precision, recall, f1
+
+
+
+
+def train_model_CAM(model, optimizer, criterion, device,
+               batch_size, patience, n_epochs, 
+               train_loader, valid_loader, save_name='checkpoint.pt'):
+    early_stopping = EarlyStopping(
+                                save_name=save_name, 
+                                patience=patience, 
+                                verbose=True)
+
+    avg_train_losses = torch.zeros(n_epochs).to(device)
+    avg_valid_losses = torch.zeros(n_epochs).to(device)
+    
+    logging.info('Training start')
+    for epoch in range(n_epochs):
+        train_losses = torch.zeros(len(train_loader)).to(device)
+        valid_losses = torch.zeros(len(train_loader)).to(device)
+        model.train() # training session with train dataset
+        for batch, (data, label) in enumerate(train_loader):
+            data = data.type(torch.FloatTensor)
+            label = label.type(torch.FloatTensor)
+            data = data.to(device)
+            label = label.to(device)
+            optimizer.zero_grad()
+            output, _ = model(data)
+            loss = criterion(output, label)
+            loss.backward()
+            optimizer.step()
+
+            train_losses[batch] = loss.item()
+        avg_train_losses[epoch] = torch.mean(train_losses)
+
+        model.eval() # validation session with validation dataset
+        with torch.no_grad():
+            for batch, (data, label) in enumerate(valid_loader):
+                data = data.type(torch.FloatTensor)
+                label = label.type(torch.FloatTensor)
+                data = data.to(device)
+                label = label.to(device)
+                output, _ = model(data)
+                loss = criterion(output, label)
+
+                valid_losses[batch] = loss.item()
+            
+            valid_loss = torch.mean(valid_losses)
+            avg_valid_losses[epoch] = valid_loss
+        
+        # decide whether to stop or not based on validation loss
+        early_stopping(valid_loss, model, optimizer, epoch) 
+        if early_stopping.early_stop:
+            logging.info('Early stopping')
+            break
+            
+    logging.info('Training end')
+    return model, avg_train_losses.tolist(), avg_valid_losses.tolist()
+
+
+def evalulate_model_CAM(model, test_loader, num_data, explainECs, device):
+    model.eval() # training session with train dataset
+    with torch.no_grad():
+        y_pred = torch.zeros([num_data, len(explainECs)]).to(device)
+        y_true = torch.zeros([num_data, len(explainECs)]).to(device)
+        logging.info('Prediction starts on test dataset')
+        cnt = 0
+        for batch, (data, label) in enumerate(test_loader):
+            data = data.type(torch.FloatTensor).to(device)
+            label = label.type(torch.FloatTensor).to(device)
+            output, _ = model(data)
+            prediction = output > 0.5
+            prediction = prediction.float()
+
+            y_pred[cnt:cnt+data.shape[0]] = prediction
+            y_true[cnt:cnt+data.shape[0]] = label
+            cnt += data.shape[0]
+        logging.info('Prediction Ended on test dataset')
+
+        y_true = y_true.cpu().numpy()
+        y_pred = y_pred.cpu().numpy()
+        precision = precision_score(y_true, y_pred, average='macro')
+        recall = recall_score(y_true, y_pred, average='macro')
+        f1 = f1_score(y_true, y_pred, average='macro')
+
+    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    return y_true, y_pred
