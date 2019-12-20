@@ -29,14 +29,10 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 
         python cnn_training.py -o ./output/cnn3 -g cuda:0 -e 30 -b 64 -r 1e-4 -p 3 -c checkpoint.pt -third False
 
-- Train CNN_multitask
+- Train CAM
 
-        python cnn_multitask.py -o ./output/cnn_multitask -g cuda:3 -e 30 -b 64 -r 1e-3 -p 3 -c checkpoint.pt
+        python cnn_CAM_training.py -o ./output/cnn_CAM -g cuda:1 -e 30 -b 128 -r 1e-3 -third False
 
 - Evaluate DeepEC
 
         python deepec_evaluate.py -o ./output/deepec_evaluation -g cuda:0 -b 1024 _c_cnn1 checkpoint_CNN1.pt -c_cnn1 checkpoint_CNN1.pt -c_cnn2 checkpoint_CNN2.pt -c_cnn3 checkpoint_CNN3.pt
-
-- Evaluate DeepEC_multitask
-
-        python deepec_multitask_evaluate.py -o ./output/deepec_multi_evaluation -g cuda:0 -b 1024 _c_cnn1 checkpoint_CNN1.pt -c_cnn2 checkpoint_CNN_multi.pt
