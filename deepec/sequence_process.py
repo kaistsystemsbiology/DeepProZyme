@@ -16,12 +16,12 @@ from process_data import readFasta, read_SP_Fasta, deleteLowConf, \
                          getExplainedEC, getExplainedEC_short, \
                          getExplainableData, convertECtoLevel3
 
-from data_loader import ECDataset, EnzymeDataset
+from deepec.data_loader import ECDataset, EnzymeDataset
 
-from utils import EarlyStopping, draw, \
+from deepec.utils import EarlyStopping, draw, \
                   train_model, evalulate_deepEC
     
-from model import DeepEC
+from deepec.model import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

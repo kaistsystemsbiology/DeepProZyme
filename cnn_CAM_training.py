@@ -3,24 +3,23 @@ import random
 import logging
 # import basic python packages
 import numpy as np
-
+from sklearn.model_selection import train_test_split
 # import torch packages
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from process_data import read_EC_Fasta, \
-                         getExplainedEC, getExplainedEC_short, \
-                         getExplainableData, convertECtoLevel3
+from deepec.process_data import read_EC_Fasta, \
+                                getExplainedEC_short, \
+                                convertECtoLevel3
 
+from deepec.data_loader import ECDataset
 
-from data_loader import ECDataset
-
-from utils import argument_parser, EarlyStopping, \
-                  draw, save_losses, train_model_CAM, evalulate_model_CAM
+from deepec.utils import argument_parser, EarlyStopping, \
+                         draw, save_losses, train_model_CAM, evalulate_model_CAM
     
-from model import DeepEC_CAM
+from deepec.model import DeepEC_CAM
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -38,15 +37,15 @@ if __name__ == '__main__':
     num_epochs = options.epoch
     batch_size = options.batch_size
     learning_rate = options.learning_rate
+    basal_net = options.basal_net
     patience = options.patience
 
     checkpt_file = options.checkpoint
-    train_data_file = options.training_data
-    val_data_file = options.validation_data
-    test_data_file = options.test_data
+    seq_file = options.seq_file
 
     third_level = options.third_level
     num_cpu = options.cpu_num
+    resume = options.training_resume
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -72,51 +71,73 @@ if __name__ == '__main__':
                   \tLearning rate: {learning_rate}\
                   \tPredict upto 3 level: {third_level}')
 
+    sequences, ecs, _ = read_EC_Fasta(seq_file)
+    train_x, test_x, train_y, test_y = train_test_split(sequences, 
+                                                        ecs, 
+                                                        test_size=0.1, 
+                                                        random_state=seed_num)
+    train_x, valid_x, train_y, valid_y = train_test_split(train_x, 
+                                                        train_y, 
+                                                        test_size=1/9, 
+                                                        random_state=seed_num)
 
-    train_seqs, train_ecs = read_EC_Fasta(train_data_file)
-    val_seqs, val_ecs = read_EC_Fasta(val_data_file)
-    test_seqs, test_ecs = read_EC_Fasta(test_data_file)
 
-    len_train_seq = len(train_seqs)
-    len_valid_seq = len(val_seqs)
-    len_test_seq = len(test_seqs)
+    len_train_seq = len(train_x)
+    len_valid_seq = len(valid_x)
+    len_test_seq = len(test_x)
 
     logging.info(f'Number of sequences used- Train: {len_train_seq}')
     logging.info(f'Number of sequences used- Validation: {len_valid_seq}')
     logging.info(f'Number of sequences used- Test: {len_test_seq}')
 
-
-    explainECs = []
-    for ec_data in [train_ecs, val_ecs, test_ecs]:
-        for ecs in ec_data:
-            for each_ec in ecs:
-                if each_ec not in explainECs:
-                    explainECs.append(each_ec)
-    explainECs.sort()
+    if resume:
+        ckpt = torch.load(f'{output_dir}/{checkpt_file}', map_location=device)
+        explainECs = ckpt['explainECs']
+    else:
+        explainECs = []
+        for ec_data in [train_y, valid_y, test_y]:
+            for ecs in ec_data:
+                for each_ec in ecs:
+                    if each_ec not in explainECs:
+                        explainECs.append(each_ec)
+        explainECs.sort()
 
 
     if third_level:
         logging.info('Predict EC number upto third level')
         explainECs = getExplainedEC_short(explainECs)
-        train_ecs = convertECtoLevel3(train_ecs)
-        val_ecs = convertECtoLevel3(val_ecs)
-        test_ecs = convertECtoLevel3(test_ecs)
+        train_y = convertECtoLevel3(train_y)
+        valid_y = convertECtoLevel3(valid_y)
+        test_y = convertECtoLevel3(test_y)
     else:
         logging.info('Predict EC number upto fourth level')
 
-    trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
-    valDataset = ECDataset(val_seqs, val_ecs, explainECs)
-    testDataset = ECDataset(test_seqs, test_ecs, explainECs)
+    trainDataset = ECDataset(train_x, train_y, explainECs)
+    valDataset = ECDataset(valid_x, valid_y, explainECs)
+    testDataset = ECDataset(test_x, test_y, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
+    if resume:
+        model = DeepEC_CAM(out_features=len(explainECs), basal_net=basal_net)
+        model.load_state_dict(ckpt['model'])
+        model = model.to(device)
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        optimizer.load_state_dict(ckpt['optimizer'])
+        logging.info('Training resumed')
+    else:
+        model = DeepEC_CAM(out_features=len(explainECs), basal_net=basal_net)
+        model = model.to(device)
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    model = DeepEC_CAM(out_features=len(explainECs))
+    
     logging.info(f'Model Architecture: \n{model}')
-    model = model.to(device)
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logging.info(f'Number of trainable parameters: {num_train_params}')
+
+    model.explainECs = explainECs
     criterion = nn.BCELoss()
 
     model, avg_train_losses, avg_valid_losses = train_model_CAM(

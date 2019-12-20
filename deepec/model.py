@@ -171,10 +171,107 @@ class CNN0_2(nn.Module):
         return x
 
 
+class CNN0_3(nn.Module):
+    '''
+    CAM calculation model. Replace maxpooling into GAP
+    Use second level convolutional layers
+    CNN3 (upto fourth EC level)
+    '''
+    def __init__(self, out_feature):
+        super(CNN0_3, self).__init__()
+        self.lrelu = nn.LeakyReLU()
+        self.relu = nn.ReLU()
+           
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21))
+        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21))
+        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21))
+
+        self.batchnorm1 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm2 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm3 = nn.BatchNorm2d(num_features=128)
+
+        self.conv1_1 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=(16,1))
+        self.conv2_1 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=(12,1))
+        self.conv3_1 = nn.Conv2d(in_channels=128, out_channels=256, kernel_size=(4,1))
+
+        self.batchnorm1_1 = nn.BatchNorm2d(num_features=256)
+        self.batchnorm2_1 = nn.BatchNorm2d(num_features=256)
+        self.batchnorm3_1 = nn.BatchNorm2d(num_features=256)
+
+        self.conv4 = nn.Conv2d(in_channels=256*3, out_channels=1024, kernel_size=(8,1))
+        self.batchnorm4 = nn.BatchNorm2d(num_features=1024)
+        
+        self.deconv = nn.ConvTranspose2d(in_channels=1024, out_channels=out_feature, kernel_size=(26,1))
+        
+    def forward(self, x):
+        x1 = self.lrelu(self.batchnorm1(self.conv1(x)))
+        x2 = self.lrelu(self.batchnorm2(self.conv2(x)))
+        x3 = self.lrelu(self.batchnorm3(self.conv3(x)))
+        x1 = self.lrelu(self.batchnorm1_1(self.conv1_1(x1)))
+        x2 = self.lrelu(self.batchnorm2_1(self.conv2_1(x2)))
+        x3 = self.lrelu(self.batchnorm3_1(self.conv3_1(x3)))
+
+        x = torch.cat((x1, x2, x3), dim=1)
+        x = self.lrelu(self.batchnorm4(self.conv4(x)))
+        x = self.deconv(x)
+        return x
+
+
+class CNN0_4(nn.Module):
+    '''
+    CAM calculation model. Replace maxpooling into GAP
+    Use second level convolutional layers
+    CNN3 (upto fourth EC level)
+    '''
+    def __init__(self, out_feature):
+        super(CNN0_4, self).__init__()
+        self.lrelu = nn.LeakyReLU()
+        self.relu = nn.ReLU()
+           
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21))
+        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21))
+        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21))
+
+        self.batchnorm1 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm2 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm3 = nn.BatchNorm2d(num_features=128)
+
+        self.conv1_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(16,1))
+        self.conv2_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(12,1))
+        self.conv3_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(4,1))
+
+        self.batchnorm1_1 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm2_1 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm3_1 = nn.BatchNorm2d(num_features=128)
+
+        self.conv4 = nn.Conv2d(in_channels=128*3, out_channels=512, kernel_size=(8,1))
+        self.batchnorm4 = nn.BatchNorm2d(num_features=512)
+
+        self.conv5 = nn.Conv2d(in_channels=1, out_channels=512, kernel_size=(26,21))
+        self.batchnorm5 = nn.BatchNorm2d(num_features=512)
+        
+        self.deconv = nn.ConvTranspose2d(in_channels=512, out_channels=out_feature, kernel_size=(26,1))
+        
+    def forward(self, input):
+        x1 = self.lrelu(self.batchnorm1(self.conv1(input)))
+        x2 = self.lrelu(self.batchnorm2(self.conv2(input)))
+        x3 = self.lrelu(self.batchnorm3(self.conv3(input)))
+        x1 = self.lrelu(self.batchnorm1_1(self.conv1_1(x1)))
+        x2 = self.lrelu(self.batchnorm2_1(self.conv2_1(x2)))
+        x3 = self.lrelu(self.batchnorm3_1(self.conv3_1(x3)))
+
+        x = torch.cat((x1, x2, x3), dim=1)
+        x = self.lrelu(self.batchnorm4(self.conv4(x)))
+        x += self.relu(self.batchnorm5(self.conv5(input)))
+        x = self.deconv(x)
+        return x
+
+
 class DeepEC_CAM(nn.Module):
-    def __init__(self, explainEcs, basal_net='CNN0_1'):
+    def __init__(self, out_features, basal_net='CNN0_3'):
         super(DeepEC_CAM, self).__init__()
-        self.explainEcs = explainEcs
+        self.explainEcs = None
+        self.num_ECs = out_features
         if basal_net == 'CNN0':
             self.cnn0 = CNN0()
         if basal_net == 'CNN0_1':
@@ -182,13 +279,13 @@ class DeepEC_CAM(nn.Module):
         elif basal_net == 'CNN0_2':
             self.cnn0 = CNN0_2()
         elif basal_net == 'CNN0_3':
-            self.cnn0 = CNN0_3()
+            self.cnn0 = CNN0_3(out_features)
         elif basal_net == 'CNN0_4':
-            self.cnn0 = CNN0_4()
+            self.cnn0 = CNN0_4(out_features)
         else:
             raise ValueError
-        self.fc = nn.Linear(in_features=len(explainEcs), out_features=len(explainEcs))
-        self.bn1 = nn.BatchNorm1d(num_features=len(explainEcs))
+        self.fc = nn.Linear(in_features=out_features, out_features=out_features)
+        self.bn1 = nn.BatchNorm1d(num_features=out_features)
         self.out_act = nn.Sigmoid()
       
         self.init_weights()
@@ -204,7 +301,7 @@ class DeepEC_CAM(nn.Module):
     def forward(self, x):
         x = self.cnn0(x)
         out = torch.sum(x, axis=[2,3])
-        out = out.view(-1, len(self.explainEcs))
+        out = out.view(-1, self.num_ECs)
         out = self.out_act(self.bn1(self.fc(out)))
         return out, x
     

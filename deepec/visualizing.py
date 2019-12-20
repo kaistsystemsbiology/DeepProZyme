@@ -2,11 +2,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from skimage.transform import resize
+
+from Bio import SeqIO
+
 import torch
-from data_loader import ECDataset
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from Bio import SeqIO
+
+from deepec.data_loader import ECDataset
 
 
 def getCAMMap(weight_sigmoid, features, ec_ind, seq_num):
