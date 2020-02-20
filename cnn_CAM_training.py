@@ -71,6 +71,11 @@ if __name__ == '__main__':
                   \tLearning rate: {learning_rate}\
                   \tPredict upto 3 level: {third_level}')
 
+
+    scheduling = True
+    if scheduling:
+        logging.info('Learnig rate scheduling')
+
     sequences, ecs, _ = read_EC_Fasta(seq_file)
     train_x, test_x, train_y, test_y = train_test_split(sequences, 
                                                         ecs, 
@@ -132,7 +137,14 @@ if __name__ == '__main__':
         model = model.to(device)
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    
+    if scheduling:
+        # exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=learning_rate*3/30)
+        # exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=num_epochs//6, gamma=0.1)
+        # exp_lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5,10], gamma=0.1) # CNN17_4, CNN18_3
+        exp_lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[4, 9, 14], gamma=0.3) # CNN17_5
+    else:
+        exp_lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=1)
+
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
@@ -141,7 +153,8 @@ if __name__ == '__main__':
     criterion = nn.BCELoss()
 
     model, avg_train_losses, avg_valid_losses = train_model_CAM(
-        model, optimizer, criterion, device,
+        model, optimizer, exp_lr_scheduler, 
+        criterion, device,
         batch_size, patience, num_epochs, 
         trainDataloader, validDataloader,
         f'{output_dir}/{checkpt_file}'
