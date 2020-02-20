@@ -134,7 +134,7 @@ def save_losses(avg_train_losses, avg_valid_losses, output_dir, file_name='losse
     return
 
 
-def train_model(model, optimizer, criterion, device,
+def train_model(model, optimizer, lr_scheduler, criterion, device,
                batch_size, patience, n_epochs, 
                train_loader, valid_loader, save_name='checkpoint.pt'):
     early_stopping = EarlyStopping(
@@ -178,6 +178,8 @@ def train_model(model, optimizer, criterion, device,
             
             valid_loss = torch.mean(valid_losses)
             avg_valid_losses[epoch] = valid_loss
+
+        lr_scheduler.step()
         
         # decide whether to stop or not based on validation loss
         early_stopping(valid_loss, model, optimizer, epoch) 
@@ -249,8 +251,8 @@ def calculateTestAccuracy(model, testDataloader, device):
 
 
 
-def train_model_CAM(model, optimizer, criterion, device,
-               batch_size, patience, n_epochs, 
+def train_model_CAM(model, optimizer, lr_scheduler, criterion, 
+               device, batch_size, patience, n_epochs, 
                train_loader, valid_loader, save_name='checkpoint.pt'):
     early_stopping = EarlyStopping(
                                 save_name=save_name, 
@@ -261,10 +263,10 @@ def train_model_CAM(model, optimizer, criterion, device,
     avg_valid_losses = torch.zeros(n_epochs).to(device)
     
     logging.info('Training start')
+    model.train() # training session with train dataset
     for epoch in range(n_epochs):
         train_losses = torch.zeros(len(train_loader)).to(device)
         valid_losses = torch.zeros(len(train_loader)).to(device)
-        model.train() # training session with train dataset
         for batch, (data, label) in enumerate(train_loader):
             data = data.type(torch.FloatTensor)
             label = label.type(torch.FloatTensor)
@@ -293,6 +295,8 @@ def train_model_CAM(model, optimizer, criterion, device,
             
             valid_loss = torch.mean(valid_losses)
             avg_valid_losses[epoch] = valid_loss
+
+        lr_scheduler.step()
         
         # decide whether to stop or not based on validation loss
         early_stopping(valid_loss, model, optimizer, epoch) 
