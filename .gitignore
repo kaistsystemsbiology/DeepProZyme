@@ -11,3 +11,4 @@ output/*
 *.png
 attentions/
 attentions_third/
+.vscode/
