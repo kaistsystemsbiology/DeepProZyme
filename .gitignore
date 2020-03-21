@@ -8,7 +8,7 @@ Dataset/
 .DS_Store
 output/*
 *.pt
-cbe481/
-*.sh
-CBE481_training.py
-cbe481_training.sh
+*.png
+attentions/
+attentions_third/
+.vscode/

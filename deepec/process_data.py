@@ -18,6 +18,24 @@ from sklearn.model_selection import train_test_split
 
 
 
+def read_EC_Fasta(fasta_file):
+    sequences = []
+    ecs = []
+    ids = []
+    fp = open(fasta_file, 'r')
+    for seq_record in SeqIO.parse(fp, 'fasta'):
+        seq = seq_record.seq
+        seq_ecs = seq_record.description.split('\t')[1]
+        seq_id = seq_record.description.split('\t')[0]
+        seq_ecs = seq_ecs.split(';')
+        sequences.append(seq)
+        ecs.append(seq_ecs)
+        ids.append(seq_id)
+    fp.close()
+    return sequences, ecs, ids
+
+
+    
 def read_SP_Fasta(fasta_file, len_criteria=1000):
     result = []
     fp = open(fasta_file, 'r')
@@ -29,19 +47,6 @@ def read_SP_Fasta(fasta_file, len_criteria=1000):
     fp.close()
     return result
 
-
-def read_EC_Fasta(fasta_file):
-    sequences = []
-    ecs = []
-    fp = open(fasta_file, 'r')
-    for seq_record in SeqIO.parse(fp, 'fasta'):
-        seq = seq_record.seq
-        seq_ecs = seq_record.description.split('\t')[1]
-        seq_ecs = seq_ecs.split(';')
-        sequences.append(seq)
-        ecs.append(seq_ecs)
-    fp.close()
-    return sequences, ecs
 
 
 def readFasta(fasta_file, len_criteria=1000):
@@ -90,29 +95,6 @@ def deleteLowConf(id2seq, id2ec, id2ec_low_confi):
     return
 
 
-def getExplainedEC(id2ec_train, id2ec_val, id2ec_test):
-    ec2cnt = {}
-    for id2ec in [id2ec_train, id2ec_val, id2ec_test]:
-        for seqid in id2ec:
-            for each_ec in id2ec[seqid]:
-                ec2cnt[each_ec] = 0
-    logging.info('Number of EC types: %d'%len(ec2cnt))
-
-    for id2ec in [id2ec_train, id2ec_val, id2ec_test]:
-        for seqid in id2ec:
-            for each_ec in id2ec[seqid]:
-                ec2cnt[each_ec] += 1
-    explainECs = []
-    for ec in ec2cnt:
-        if ec2cnt[ec] < 10:
-            continue
-        explainECs.append(ec)
-    explainECs.sort()
-
-    logging.info('Number of Explained EC: %d'%len(explainECs))
-    return explainECs
-
-
 def getExplainedEC_short(explainECs):
     p = re.compile('EC:\S[.]\S+[.]\S+[.]')
     tmp = []
@@ -124,19 +106,6 @@ def getExplainedEC_short(explainECs):
     num_ec = len(explainECs_short)
     logging.info(f'Number of Explained EC in 3 level: {num_ec}')
     return explainECs_short
-
-
-def getExplainableData(id2seq, id2ec, explainECs):
-    Xs, Ys = [], []
-    for seq_id in id2ec:
-        tmp_y = []
-        for each_ec in id2ec[seq_id]:
-            if each_ec in explainECs:
-                tmp_y.append(each_ec)
-        if len(tmp_y):
-            Xs.append(id2seq[seq_id])
-            Ys.append(tmp_y)
-    return Xs, Ys
 
 
 def convertECtoLevel3(ecs):
