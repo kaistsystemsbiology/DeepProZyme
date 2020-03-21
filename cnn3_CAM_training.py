@@ -42,9 +42,7 @@ if __name__ == '__main__':
     patience = options.patience
 
     checkpt_file = options.checkpoint
-    train_data_file = options.training_data
-    val_data_file = options.validation_data
-    test_data_file = options.test_data
+    input_data_file = options.seq_file
 
     third_level = options.third_level
     num_cpu = options.cpu_num
@@ -119,7 +117,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC_CAM(explainEcs=explainECs, basal_net='CNN0_2')
+    model = DeepEC_CAM(out_features=len(explainECs), basal_net='CNN18')
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
