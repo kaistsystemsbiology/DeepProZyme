@@ -251,7 +251,7 @@ def calculateTestAccuracy(model, testDataloader, device):
 
 
 
-def train_model_CAM(model, optimizer, lr_scheduler, criterion, 
+def train_model_CAM(model, optimizer, criterion, 
                device, batch_size, patience, n_epochs, 
                train_loader, valid_loader, save_name='checkpoint.pt'):
     early_stopping = EarlyStopping(
@@ -295,8 +295,6 @@ def train_model_CAM(model, optimizer, lr_scheduler, criterion,
             
             valid_loss = torch.mean(valid_losses)
             avg_valid_losses[epoch] = valid_loss
-
-        lr_scheduler.step()
         
         # decide whether to stop or not based on validation loss
         early_stopping(valid_loss, model, optimizer, epoch) 
