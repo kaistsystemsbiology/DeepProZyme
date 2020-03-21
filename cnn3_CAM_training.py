@@ -3,6 +3,7 @@ import random
 import logging
 # import basic python packages
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 # import torch packages
 import torch
@@ -10,17 +11,17 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from process_data import read_EC_Fasta, \
-                         getExplainedEC, getExplainedEC_short, \
+from deepec.process_data import read_EC_Fasta, \
+                         getExplainedEC_short, \
                          getExplainableData, convertECtoLevel3
 
 
-from data_loader import ECDataset
+from deepec.data_loader import ECDataset
 
-from utils import argument_parser, EarlyStopping, \
+from deepec.utils import argument_parser, EarlyStopping, \
                   draw, save_losses, train_model_CAM, evalulate_model_CAM
     
-from model import DeepEC_CAM
+from deepec.model import DeepEC_CAM
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -72,11 +73,16 @@ if __name__ == '__main__':
                   \tLearning rate: {learning_rate}\
                   \tPredict upto 3 level: {third_level}')
 
+    input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
 
-    train_seqs, train_ecs = read_EC_Fasta(train_data_file)
-    val_seqs, val_ecs = read_EC_Fasta(val_data_file)
-    test_seqs, test_ecs = read_EC_Fasta(test_data_file)
+    train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.2, random_state=seed_num)
+    train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.2, random_state=seed_num)
+    # train_ids, test_ids = train_test_split(input_ids, test_size=0.2, random_state=seed_num)
 
+    train_seqs, val_seqs = train_test_split(train_seqs, test_size=0.125, random_state=seed_num)
+    train_ecs, val_ecs = train_test_split(train_ecs, test_size=0.125, random_state=seed_num)
+    # train_ids, val_ids = train_test_split(input_ids, test_size=0.125, random_state=seed_num)
+    
     len_train_seq = len(train_seqs)
     len_valid_seq = len(val_seqs)
     len_test_seq = len(test_seqs)
