@@ -256,7 +256,7 @@ class CNN18(nn.Module):
 class DeepEC_CAM(nn.Module):
     def __init__(self, out_features, basal_net='CNN15'):
         super(DeepEC_CAM, self).__init__()
-        self.explainEcs = None
+        self.explainECs = None
         self.num_ECs = out_features
         if basal_net == 'CNN15':
             self.cnn0 = CNN15(out_features)
