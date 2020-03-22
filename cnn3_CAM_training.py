@@ -12,8 +12,8 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from deepec.process_data import read_EC_Fasta, \
-                         getExplainedEC_short, \
-                         getExplainableData, convertECtoLevel3
+                                getExplainedEC_short, \
+                                convertECtoLevel3
 
 
 from deepec.data_loader import ECDataset
@@ -118,6 +118,7 @@ if __name__ == '__main__':
 
 
     model = DeepEC_CAM(out_features=len(explainECs), basal_net='CNN18')
+    model.explainECs = explainECs
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
