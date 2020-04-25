@@ -339,8 +339,8 @@ def train_model_CAM(model, optimizer, criterion,
 def evalulate_model_CAM(model, test_loader, num_data, explainECs, device):
     model.eval() # training session with train dataset
     with torch.no_grad():
-        y_pred = torch.zeros([num_data, len(explainECs)]).to(device)
-        y_true = torch.zeros([num_data, len(explainECs)]).to(device)
+        y_pred = torch.zeros([num_data, len(explainECs)])
+        y_true = torch.zeros([num_data, len(explainECs)])
         logging.info('Prediction starts on test dataset')
         cnt = 0
         for batch, (data, label) in enumerate(test_loader):
@@ -350,13 +350,13 @@ def evalulate_model_CAM(model, test_loader, num_data, explainECs, device):
             prediction = output > 0.5
             prediction = prediction.float()
 
-            y_pred[cnt:cnt+data.shape[0]] = prediction
-            y_true[cnt:cnt+data.shape[0]] = label
+            y_pred[cnt:cnt+data.shape[0]] = prediction.cpu()
+            y_true[cnt:cnt+data.shape[0]] = label.cpu()
             cnt += data.shape[0]
         logging.info('Prediction Ended on test dataset')
 
-        y_true = y_true.cpu().numpy()
-        y_pred = y_pred.cpu().numpy()
+        y_true = y_true.numpy()
+        y_pred = y_pred.numpy()
         precision = precision_score(y_true, y_pred, average='macro')
         recall = recall_score(y_true, y_pred, average='macro')
         f1 = f1_score(y_true, y_pred, average='macro')
