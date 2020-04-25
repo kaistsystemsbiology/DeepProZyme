@@ -117,10 +117,13 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC_CAM(out_features=len(explainECs), basal_net='CNN18')
+    model = DeepEC_CAM(out_features=len(explainECs), basal_net='CNN16')
     model.explainECs = explainECs
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
+    num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logging.info(f'Number of trainable parameters: {num_train_params}')
+
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.BCELoss()
 
