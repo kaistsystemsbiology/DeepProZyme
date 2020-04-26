@@ -12,3 +12,4 @@ output/*
 attentions/
 attentions_third/
 .vscode/
+result/
