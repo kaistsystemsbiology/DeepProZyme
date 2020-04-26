@@ -92,9 +92,9 @@ class CNN0(nn.Module):
 
 
 class DeepEC(nn.Module):
-    def __init__(self, explainEcs, basal_net='CNN0'):
+    def __init__(self, out_features, basal_net='CNN0'):
         super(DeepEC, self).__init__()
-        self.explainEcs = explainEcs
+        self.explainECs = out_features
         if basal_net == 'CNN0':
             self.cnn0 = CNN0()
         elif basal_net == 'CNN0_1':
@@ -107,8 +107,8 @@ class DeepEC(nn.Module):
             self.cnn0 = CNN0_4()
         else:
             raise ValueError
-        self.fc = nn.Linear(in_features=128*3, out_features=len(explainEcs))
-        self.bn1 = nn.BatchNorm1d(num_features=len(explainEcs))
+        self.fc = nn.Linear(in_features=128*3, out_features=len(out_features))
+        self.bn1 = nn.BatchNorm1d(num_features=len(out_features))
         self.out_act = nn.Sigmoid()
         self.init_weights()
 

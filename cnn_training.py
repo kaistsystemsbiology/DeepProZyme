@@ -3,6 +3,7 @@ import random
 import logging
 # import basic python packages
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 # import torch packages
 import torch
@@ -10,17 +11,17 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from process_data import read_EC_Fasta, \
-                         getExplainedEC, getExplainedEC_short, \
-                         getExplainableData, convertECtoLevel3
+from deepec.process_data import read_EC_Fasta, \
+                                getExplainedEC_short, \
+                                convertECtoLevel3
 
 
-from data_loader import ECDataset
+from deepec.data_loader import ECDataset
 
-from utils import argument_parser, EarlyStopping, \
-                  draw, save_losses, train_model, evalulate_model
+from deepec.utils import argument_parser, EarlyStopping, \
+                         draw, save_losses, train_model, evalulate_model
     
-from model import DeepEC, DeepEC_3, DeepEC_4
+from deepec.old_models import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -41,9 +42,7 @@ if __name__ == '__main__':
     patience = options.patience
 
     checkpt_file = options.checkpoint
-    train_data_file = options.training_data
-    val_data_file = options.validation_data
-    test_data_file = options.test_data
+    input_data_file = options.seq_file
 
     third_level = options.third_level
     num_cpu = options.cpu_num
@@ -73,9 +72,15 @@ if __name__ == '__main__':
                   \tPredict upto 3 level: {third_level}')
 
 
-    train_seqs, train_ecs = read_EC_Fasta(train_data_file)
-    val_seqs, val_ecs = read_EC_Fasta(val_data_file)
-    test_seqs, test_ecs = read_EC_Fasta(test_data_file)
+    input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+
+    train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.2, random_state=seed_num)
+    train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.2, random_state=seed_num)
+    # train_ids, test_ids = train_test_split(input_ids, test_size=0.2, random_state=seed_num)
+
+    train_seqs, val_seqs = train_test_split(train_seqs, test_size=0.125, random_state=seed_num)
+    train_ecs, val_ecs = train_test_split(train_ecs, test_size=0.125, random_state=seed_num)
+    # train_ids, val_ids = train_test_split(input_ids, test_size=0.125, random_state=seed_num)
 
     len_train_seq = len(train_seqs)
     len_valid_seq = len(val_seqs)
@@ -113,8 +118,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=len(explainECs))
-    # model = DeepEC_4(out_features=len(explainECs))
+    model = DeepEC(out_features=explainECs, basal_net='CNN0')
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
