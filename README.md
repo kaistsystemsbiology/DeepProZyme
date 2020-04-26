@@ -23,11 +23,11 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 
 - Train CNN2
 
-        python cnn_training.py -o ./output/cnn2 -g cuda:0 -e 30 -b 64 -r 1e-4 -p 3 -c checkpoint.pt -third True
+        python cnn_training.py -t ./Dataset/processedUniRefSeq.fasta -o ./output/ec7_cnn3_01 -g cuda:0 -e 30 -b 128 -r 1e-3 -p 5 -third False
 
 - Train CNN3
 
-        python cnn_training.py -o ./output/cnn3 -g cuda:0 -e 30 -b 64 -r 1e-4 -p 3 -c checkpoint.pt -third False
+        python cnn_training.py -t ./Dataset/processedUniRefSeq.fasta -o ./output/ec7_cnn3_01 -g cuda:0 -e 30 -b 128 -r 1e-3 -p 5 -third False
 
 - Train CAM
 

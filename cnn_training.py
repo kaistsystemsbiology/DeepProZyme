@@ -74,13 +74,13 @@ if __name__ == '__main__':
 
     input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
 
-    train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.2, random_state=seed_num)
-    train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.2, random_state=seed_num)
-    # train_ids, test_ids = train_test_split(input_ids, test_size=0.2, random_state=seed_num)
+    train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
+    train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
+    # train_ids, test_ids = train_test_split(input_ids, test_size=0.1, random_state=seed_num)
 
-    train_seqs, val_seqs = train_test_split(train_seqs, test_size=0.125, random_state=seed_num)
-    train_ecs, val_ecs = train_test_split(train_ecs, test_size=0.125, random_state=seed_num)
-    # train_ids, val_ids = train_test_split(input_ids, test_size=0.125, random_state=seed_num)
+    train_seqs, val_seqs = train_test_split(train_seqs, test_size=1/9, random_state=seed_num)
+    train_ecs, val_ecs = train_test_split(train_ecs, test_size=1/9, random_state=seed_num)
+    # train_ids, val_ids = train_test_split(input_ids, test_size=1/9, random_state=seed_num)
 
     len_train_seq = len(train_seqs)
     len_valid_seq = len(val_seqs)
@@ -121,6 +121,9 @@ if __name__ == '__main__':
     model = DeepEC(out_features=explainECs, basal_net='CNN0')
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
+    num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logging.info(f'Number of trainable parameters: {num_train_params}')
+
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.BCELoss()
 

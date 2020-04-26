@@ -189,38 +189,6 @@ def train_model(model, optimizer, criterion, device,
     return model, avg_train_losses.tolist(), avg_valid_losses.tolist()
 
 
-
-# def evalulate_model(model, test_loader, num_data, explainECs, device):
-#     model.eval() # training session with train dataset
-#     with torch.no_grad():
-#         y_pred = torch.zeros([num_data, len(explainECs)]).to(device)
-#         y_true = torch.zeros([num_data, len(explainECs)]).to(device)
-#         logging.info('Prediction starts on test dataset')
-#         cnt = 0
-#         for batch, (data, label) in enumerate(test_loader):
-#             data = data.type(torch.FloatTensor)
-#             label = label.type(torch.FloatTensor)
-#             data = data.to(device)
-#             label = label.to(device)
-#             output = model(data)
-#             prediction = output > 0.5
-#             prediction = prediction.float()
-
-#             y_pred[cnt:cnt+data.shape[0]] = prediction
-#             y_true[cnt:cnt+data.shape[0]] = label
-#             cnt += data.shape[0]
-#         logging.info('Prediction Ended on test dataset')
-
-#         y_true = y_true.cpu().numpy()
-#         y_pred = y_pred.cpu().numpy()
-#         precision = precision_score(y_true, y_pred, average='macro')
-#         recall = recall_score(y_true, y_pred, average='macro')
-#         f1 = f1_score(y_true, y_pred, average='macro')
-
-#     logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
-#     return precision, recall, f1
-
-
 def evalulate_model(model, test_loader, num_data, explainECs, device):
     model.eval() # training session with train dataset
     with torch.no_grad():
