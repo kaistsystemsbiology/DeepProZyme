@@ -193,6 +193,7 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
     model.eval() # training session with train dataset
     with torch.no_grad():
         y_pred = torch.zeros([num_data, len(explainECs)])
+        y_score = torch.zeros([num_data, len(explainECs)])
         y_true = torch.zeros([num_data, len(explainECs)])
         logging.info('Prediction starts on test dataset')
         cnt = 0
@@ -206,6 +207,7 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
             prediction = prediction.float()
 
             y_pred[cnt:cnt+data.shape[0]] = prediction.cpu()
+            y_score[cnt:cnt+data.shape[0]] = output.cpu()
             y_true[cnt:cnt+data.shape[0]] = label.cpu()
             cnt += data.shape[0]
         logging.info('Prediction Ended on test dataset')
@@ -217,7 +219,10 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
         f1 = f1_score(y_true, y_pred, average='macro')
 
     logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
-    return precision, recall, f1
+    fpr, tpr, threshold = roc_curve(y_true, y_score)
+    roc_auc = auc(fpr, tpr)
+    logging.info(f'AUC: {roc_auc: 0.6f}')
+    return fpr, tpr
 
 
 
