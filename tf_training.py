@@ -3,7 +3,7 @@ import random
 import logging
 # import basic python packages
 import numpy as np
-
+import matplotlib.pyplot as plt
 # import torch packages
 import torch
 import torch.nn as nn
@@ -15,7 +15,7 @@ from deepec.process_data import read_SP_Fasta, split_EnzNonenz
 from deepec.data_loader import EnzymeDataset
 
 from deepec.utils import argument_parser, EarlyStopping, \
-                  draw, save_losses, train_model, calculateTestAccuracy
+                  draw, save_losses, train_model, calculateTestAccuracy, evalulate_model
     
 from deepec.old_models import DeepEC
 
@@ -105,17 +105,17 @@ if __name__ == '__main__':
                 trainDataloader, validDataloader, 
                 save_name=f'{output_dir}/{checkpt_file}')
 
-    # model, avg_train_losses, avg_valid_losses = train_model(
-    #     model, optimizer, criterion, device,
-    #     batch_size, patience, num_epochs, 
-    #     trainDataloader, validDataloader,
-
-
-
     save_losses(avg_train_losses, avg_valid_losses, output_dir=output_dir)
     draw(avg_train_losses, avg_valid_losses, output_dir=output_dir)
 
-    ckpt = torch.load(f'{output_dir}/{checkpt_file}')
+    ckpt = torch.load(f'{output_dir}/{checkpt_file}', map_location=device)
     model.load_state_dict(ckpt['model'])
 
     accuracy = calculateTestAccuracy(model, testDataloader, device)
+    fpr, tpr = evalulate_model(model, testDataloader, len(testDataset), [1], device)
+    
+    fig = plt.figure(figsize=(6,6))
+    plt.plot(fpr, tpr, 'b',linewidth=2)
+    plt.xlim(left=0, right=1)
+    plt.ylim(bottom=0, top=1)
+    plt.savefig(output_dir + '/AUC_curve.png')
