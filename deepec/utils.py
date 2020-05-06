@@ -56,6 +56,13 @@ def argument_parser(version=None):
                         default=False, help='Resume training based on the previous checkpoint')
     parser.add_argument('-cpu', '--cpu_num', required=False, type=int,
                         default=1, help='Number of cpus to use')
+
+    parser.add_argument('-c1', '--checkpoint_CNN1', required=False, 
+                        default='checkpoint.pt', help='Checkpoint file for CNN1')
+    parser.add_argument('-c2', '--checkpoint_CNN2', required=False, 
+                        default='checkpoint.pt', help='Checkpoint file for CNN2')
+    parser.add_argument('-c3', '--checkpoint_CNN3', required=False, 
+                        default='checkpoint.pt', help='Checkpoint file for CNN3')
     
     return parser
 
@@ -336,3 +343,85 @@ def evalulate_model_CAM(model, test_loader, num_data, explainECs, device):
 
     logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     return y_true, y_pred
+
+
+def evalulate_deepEC(model0, model1, model2, test_loader, num_data, device):
+    with torch.no_grad():
+        model0.eval() # CNN1
+        model1.eval() # CNN2
+        model2.eval() # CNN3
+        
+        y_pred1 = torch.zeros([num_data, len(model1.explainECs)]).to(device)
+        y_pred2 = torch.zeros([num_data, len(model2.explainECs)]).to(device)
+        y_true = torch.zeros([num_data, len(model2.explainECs)]).to(device)
+        logging.info('Prediction starts on test dataset')
+        cnt = 0
+        for batch, (data, label) in enumerate(test_loader):
+            data = data.type(torch.FloatTensor)
+            data = data.to(device)
+            label = label.type(torch.FloatTensor).to(device)
+            output1 = model1(data)
+            output2 = model2(data)
+
+            prediction1 = output1 > 0.5
+            prediction1 = prediction1.float()
+            prediction2 = output2 > 0.5
+            prediction2 = prediction2.float()
+
+            y_pred1[cnt:cnt+data.shape[0]] = prediction1
+            y_pred2[cnt:cnt+data.shape[0]] = prediction2
+            y_true[cnt:cnt+data.shape[0]] = label
+            cnt += data.shape[0]
+
+        logging.info('Prediction Ended on test dataset')
+        y_true = y_true.cpu()
+        ec2ec_map = _getEC32EC4map(model1.explainECs, model2.explainECs).to(device)
+        prediction = _getCommonECs(y_pred1, y_pred2, ec2ec_map, device)
+
+        y_pred1 = None
+        y_pred2 = None
+
+        y_pred0 = torch.zeros([num_data, 1]).to(device)
+        logging.info('Enzyme prediction starts on test dataset')
+        cnt = 0
+        for batch, (data, _) in enumerate(test_loader):
+            data = data.type(torch.FloatTensor)
+            data = data.to(device)
+            output0 = model0(data)
+
+            prediction0 = output0 > 0.5
+            prediction0 = prediction0.float()
+            y_pred0[cnt:cnt+data.shape[0]] = prediction0
+            cnt += data.shape[0]
+
+        prediction = y_pred0 * prediction
+        y_pred0 = None
+        prediction = prediction.cpu().numpy()
+        logging.info('Got common ECs from the prediction')
+
+        precision = precision_score(y_true, prediction, average='macro')
+        recall = recall_score(y_true, prediction, average='macro')
+        f1 = f1_score(y_true, prediction, average='macro')
+
+        logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    return precision, recall, f1
+
+
+def _getEC32EC4map(explainECs_short, explainECs):
+    result = torch.zeros((len(explainECs), len(explainECs_short)))
+    for ec4_ind, ec4 in enumerate(explainECs):
+        tmp = torch.zeros(len(explainECs_short))
+        for i, ec3 in enumerate(explainECs_short):
+            if ec4.startswith(ec3):
+                tmp[i] = 1
+        result[ec4_ind] = tmp
+    return result
+
+
+def _getCommonECs(ec3_pred, ec4_pred, ec2ec_map, device):
+    common_pred = torch.zeros(ec4_pred.shape).to(device)
+    for i in range(len(ec4_pred)):
+        ec4_activemap = torch.matmul(ec2ec_map, ec3_pred[i])
+        common_EC = ec4_activemap * ec4_pred[i]
+        common_pred[i] = common_EC
+    return common_pred
