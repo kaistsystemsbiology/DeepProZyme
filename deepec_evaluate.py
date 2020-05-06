@@ -3,17 +3,17 @@ import random
 import logging
 # import basic python packages
 import numpy as np
-
+from sklearn.model_selection import train_test_split
 # import torch packages
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from process_data import read_EC_Fasta, getExplainedEC_short
-from data_loader import ECDataset, EnzymeDataset
-from utils import argument_parser, evalulate_deepEC
-from model import DeepEC
+from deepec.process_data import read_EC_Fasta
+from deepec.data_loader import ECDataset
+from deepec.utils import argument_parser, evalulate_deepEC
+from deepec.old_models import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -28,16 +28,14 @@ if __name__ == '__main__':
     log_dir = options.log_dir
 
     device = options.gpu
+    num_cpu = options.cpu_num
     batch_size = options.batch_size
 
     checkpt_file_cnn1 = options.checkpoint_CNN1 # CNN1
     checkpt_file_cnn2 = options.checkpoint_CNN2 # CNN2
     checkpt_file_cnn3 = options.checkpoint_CNN3 # CNN3
 
-    train_data_file = options.training_data
-    val_data_file = options.validation_data
-    test_data_file = options.test_data
-
+    input_data_file = options.seq_file
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -55,7 +53,6 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(seed_num)
     np.random.seed(seed_num)
 
-    num_cpu = 4
     torch.set_num_threads(num_cpu)
 
     logging.info(f'\nInitial Setting\
@@ -64,39 +61,29 @@ if __name__ == '__main__':
                   \tCNN2 checkpoint: {checkpt_file_cnn2}\
                   \tCNN3 checkpoint: {checkpt_file_cnn3}')
 
-    _, train_ecs = read_EC_Fasta(train_data_file)
-    _, val_ecs = read_EC_Fasta(val_data_file)
-    test_seqs, test_ecs = read_EC_Fasta(test_data_file)
+    input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+    _, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
+    _, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
+    # train_ids, test_ids = train_test_split(input_ids, test_size=0.1, random_state=seed_num)
 
-    len_test_seq = len(test_seqs)
-    logging.info(f'Number of sequences used- Test: {len_test_seq}')
+    logging.info(f'Number of sequences used- Test: {len(test_seqs)}')
 
-    explainECs = []
-    for ec_data in [train_ecs, val_ecs, test_ecs]:
-        for ecs in ec_data:
-            for each_ec in ecs:
-                if each_ec not in explainECs:
-                    explainECs.append(each_ec)
-    explainECs.sort()
+    ckpt1 = torch.load(checkpt_file_cnn1, map_location=device)
+    ckpt2 = torch.load(checkpt_file_cnn2, map_location=device)
+    ckpt3 = torch.load(checkpt_file_cnn3, map_location=device)
 
-    explainECs_short = getExplainedEC_short(explainECs)
-
-    testDataset = ECDataset(test_seqs, test_ecs, explainECs)
-    testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
-
-    cnn1 = DeepEC(out_features=1)
+    cnn1 = DeepEC(out_features=ckpt1['explainECs'])
     cnn1 = cnn1.to(device)
-    cnn2 = DeepEC(out_features=len(explainECs_short))
+    cnn2 = DeepEC(out_features=ckpt2['explainECs'])
     cnn2 = cnn2.to(device)
-    cnn3 = DeepEC(out_features=len(explainECs))
+    cnn3 = DeepEC(out_features=ckpt3['explainECs'])
     cnn3 = cnn3.to(device)
 
-    cnn1.load_state_dict(\
-            torch.load(checkpt_file_cnn1, map_location=device)['model'])
-    cnn2.load_state_dict(\
-            torch.load(checkpt_file_cnn2, map_location=device)['model'])
-    cnn3.load_state_dict(\
-            torch.load(checkpt_file_cnn3, map_location=device)['model'])
+    cnn1.load_state_dict(ckpt1['model'])
+    cnn2.load_state_dict(ckpt2['model'])
+    cnn3.load_state_dict(ckpt3['model'])
+    
+    testDataset = ECDataset(test_seqs, test_ecs, cnn3.explainECs)
+    testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-
-    evalulate_deepEC(cnn1, cnn2, cnn3, testDataloader, len(testDataset), explainECs, explainECs_short, device)
+    evalulate_deepEC(cnn1, cnn2, cnn3, testDataloader, len(testDataset), device)
