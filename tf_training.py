@@ -17,7 +17,7 @@ from deepec.data_loader import EnzymeDataset
 from deepec.utils import argument_parser, EarlyStopping, \
                   draw, save_losses, train_model, calculateTestAccuracy, evalulate_model
     
-from deepec.old_models import DeepEC
+from deepec.tf_models import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=[1], basal_net='CNN0')
+    model = DeepEC(out_features=[1], basal_net='CNN0_03')
     model = model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.BCELoss()
