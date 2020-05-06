@@ -3,6 +3,8 @@ import random
 import logging
 # import basic python packages
 import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
 # import torch packages
 import torch
@@ -10,14 +12,15 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from process_data import read_SP_Fasta, split_EnzNonenz
+from deepec.process_data import read_SP_Fasta, split_EnzNonenz
 
-from data_loader import EnzymeDataset
+from deepec.data_loader import EnzymeDataset
 
-from utils import argument_parser, EarlyStopping, \
-                  draw, save_losses, train_model, calculateTestAccuracy
+from deepec.utils import argument_parser, EarlyStopping, \
+                         draw, save_losses, train_model, \
+                         calculateTestAccuracy, evalulate_model
     
-from model import DeepEC
+from deepec.old_models import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -93,8 +96,12 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=1)
+    model = DeepEC(out_features=[1])
+    logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
+    num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logging.info(f'Number of trainable parameters: {num_train_params}')
+
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.BCELoss()
 
@@ -113,3 +120,10 @@ if __name__ == '__main__':
     model.load_state_dict(ckpt['model'])
 
     accuracy = calculateTestAccuracy(model, testDataloader, device)
+    fpr, tpr = evalulate_model(model, testDataloader, len(testDataset), [1], device)
+    
+    fig = plt.figure(figsize=(6,6))
+    plt.plot(fpr, tpr, 'b',linewidth=2)
+    plt.xlim(left=0, right=1)
+    plt.ylim(bottom=0, top=1)
+    plt.savefig(output_dir + '/AUC_curve.png')
