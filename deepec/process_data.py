@@ -35,6 +35,19 @@ def read_EC_Fasta(fasta_file):
     return sequences, ecs, ids
 
 
+def read_EC_actual_Fasta(fasta_file):
+    sequences = []
+    ids = []
+    fp = open(fasta_file, 'r')
+    for seq_record in SeqIO.parse(fp, 'fasta'):
+        seq = seq_record.seq
+        seq_id = seq_record.id
+
+        sequences.append(seq)
+        ids.append(seq_id)
+    fp.close()
+    return sequences, ids
+
     
 def read_SP_Fasta(fasta_file, len_criteria=1000):
     result = []
