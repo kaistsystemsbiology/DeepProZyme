@@ -37,13 +37,13 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 
         python deepec_evaluate.py -o ./output/deepec_evaluation -g cuda:0 -b 1024 -c1 ./output/cnn1_01/checkpoint.pt -c2 ./output/ec7_cnn2_01/checkpoint.pt -c3 ./output/ec7_cnn3_03/checkpoint.pt -t ./Dataset/processedUniRefSeq.fasta
 
-- Train TF
+- Train DeepTFactor
 
-        python tf_training.py -enz ./Dataset/processedTFSeq_extended.fasta -nonenz ./Dataset/processedNonTFSeq_extended.fasta -o ./output/tf_extended_01 -g cuda:1  -e 30 -b 128 -r 1e-3
+        python tf_training.py -enz ./Dataset/processedTFSeq_extended.fasta -nonenz ./Dataset/processedNonTFSeq_extended.fasta -o ./output/tf_depptfactor -g cuda:1  -e 30 -b 256 -r 1e-3
 
-- Run TF predicion
+- Run DeepTFactor
 
-        python tf_running.py -enz ./Dataset/example_tf.fasta -c ./output/tf0/checkpoint.pt -o ./output/tf0/prediction_result -g cuda:0
+        python tf_running.py -enz ./Dataset/example_tf.fasta -c ./output/tf_depptfactor/checkpoint.pt -o ./output/tf0/tf_depptfactor -g cuda:0
 
 - Run DeepEC predicion
 
