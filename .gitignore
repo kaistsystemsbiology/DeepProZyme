@@ -7,7 +7,6 @@ Dataset/
 .ipynb_checkpoints/
 .DS_Store
 output/*
-*.pt
 *.png
 attentions/
 attentions_third/
