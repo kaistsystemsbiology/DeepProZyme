@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_actual_Fasta
 from deepec.data_loader import EnzymeDataset
 from deepec.utils import argument_parser
-from deepec.tf_models import DeepEC
+from deepec.tf_models import DeepTFactor
 
 
 
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     proteinDataloader = DataLoader(proteinDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=[1], basal_net='CNN0_0')
+    model = DeepTFactor(out_features=[1])
     model = model.to(device)
 
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
