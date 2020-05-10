@@ -3,30 +3,17 @@ import torch
 import torch.nn as nn
 
 
-class DeepEC(nn.Module):
-    def __init__(self, out_features, basal_net='CNN0'):
-        super(DeepEC, self).__init__()
+class DeepTFactor(nn.Module):
+    def __init__(self, out_features):
+        super(DeepTFactor, self).__init__()
         self.explainECs = out_features
-        if basal_net == 'CNN0':
-            self.cnn0 = CNN0()
-        elif basal_net == 'CNN0_0':
-            self.cnn0 = CNN0_0()
-        elif basal_net == 'CNN0_01':
-            self.cnn0 = CNN0_01()
-        elif basal_net == 'CNN0_02':
-            self.cnn0 = CNN0_02()
-        elif basal_net == 'CNN0_03':
-            self.cnn0 = CNN0_03()
-        elif basal_net == 'CNN0_3':
-            self.cnn0 = CNN0_3()
-        elif basal_net == 'CNN0_4':
-            self.cnn0 = CNN0_4()
-        else:
-            raise ValueError
+
+        self.cnn0 = CNN0_0
         self.fc = nn.Linear(in_features=128*3, out_features=len(out_features))
         self.bn1 = nn.BatchNorm1d(num_features=len(out_features))
         self.out_act = nn.Sigmoid()
         self.init_weights()
+
 
     def init_weights(self):
         for m in self.modules():
@@ -34,7 +21,7 @@ class DeepEC(nn.Module):
                 nn.init.xavier_uniform_(m.weight)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
-        
+
         
     def forward(self, x):
         x = self.cnn0(x)
@@ -88,6 +75,46 @@ class CNN0_0(nn.Module):
         x3 = self.pool3(x3)
 
         x = torch.cat((x1, x2, x3), dim=1)
+        return x
+
+
+class DeepEC(nn.Module):
+    def __init__(self, out_features, basal_net='CNN0'):
+        super(DeepEC, self).__init__()
+        self.explainECs = out_features
+        if basal_net == 'CNN0':
+            self.cnn0 = CNN0()
+        elif basal_net == 'CNN0_0':
+            self.cnn0 = CNN0_0()
+        elif basal_net == 'CNN0_01':
+            self.cnn0 = CNN0_01()
+        elif basal_net == 'CNN0_02':
+            self.cnn0 = CNN0_02()
+        elif basal_net == 'CNN0_03':
+            self.cnn0 = CNN0_03()
+        elif basal_net == 'CNN0_3':
+            self.cnn0 = CNN0_3()
+        elif basal_net == 'CNN0_4':
+            self.cnn0 = CNN0_4()
+        else:
+            raise ValueError
+        self.fc = nn.Linear(in_features=128*3, out_features=len(out_features))
+        self.bn1 = nn.BatchNorm1d(num_features=len(out_features))
+        self.out_act = nn.Sigmoid()
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+        
+        
+    def forward(self, x):
+        x = self.cnn0(x)
+        x = x.view(-1, 128*3)
+        x = self.out_act(self.bn1(self.fc(x)))
         return x
 
 
@@ -260,35 +287,6 @@ class CNN0_03(nn.Module):
         return x 
 
 
-# class InceptionModule(nn.Module):
-#     def __init__(self,in_channels, *out_channels):
-#         super(InceptionModule,self).__init__()
-#         out_channel1x1 = 64
-#         out_channel3x1_1 = 32
-#         out_channel3x1_2 = 128
-#         out_channel5x1_1 = 16
-#         out_channel5x1_2 = 32
-#         out_channel_pooling = 32
-
-
-#         self.branch1x1 = nn.Conv2d(in_channels, out_channel1x1, kernel_size=(1,1))
-#         self.branch3x1_1 = nn.Conv2d(in_channels, out_channel3x1_1, kernel_size=(1,1))
-#         self.branch3x1_2 = nn.Conv2d(out_channel3x1_1, out_channel3x1_2, kernel_size=(3,1), padding=(1,1))
-#         self.branch5x1_1 = nn.Conv2d(in_channels, out_channel5x1_1, kernel_size=(1,1))
-#         self.branch5x1_2 = nn.Conv2d(out_channel5x1_1, out_channel5x1_2, kernel_size=(5,1), padding=(1,2))
-#         self.branch_pool_1 = nn.AvgPool2d(kernel_size=(3,1), padding=(1,1))
-#         self.branch_pool_2 = nn.Conv2d(in_channels, out_channel_pooling, kernel_size=(1,1))
-
-        
-#     def forward(self,x): 
-#         branch1x1 = self.branch1x1(x)
-#         branch3x1 = self.branch3x1_1(x)
-#         branch3x1 = self.branch3x1_2(branch3x1)
-#         branch5x1 = self.branch5x1_1(x)
-#         branch5x1 = self.branch5x1_2(branch5x1)
-#         branch_pool = self.branch_pool_1(x)
-#         branch_pool = self.branch_pool_2(branch_pool)
-#         return torch.cat([branch1x1, branch3x1, branch5x1, branch_pool], axis=1)
 
 class InceptionModule(nn.Module):
     def __init__(self,in_channels, *out_channels):
@@ -312,3 +310,115 @@ class InceptionModule(nn.Module):
         branch_pool = self.branch_pool_1(x)
         branch_pool = self.branch_pool_2(branch_pool)
         return torch.cat([branch1x1, branch3x1, branch5x1, branch_pool], axis=1)
+
+
+
+class InceptionModule(nn.Module):
+    def __init__(self,in_channels, *out_channels):
+        super(InceptionModule, self).__init__()
+        out_channels=out_channels[0]
+        self.relu = nn.ReLU()
+
+        self.branch1x1 = nn.Conv2d(in_channels, out_channels[0], kernel_size=(1,1))
+        self.branch3x1_1 = nn.Conv2d(in_channels, out_channels[1], kernel_size=(1,1))
+        self.branch3x1_2 = nn.Conv2d(out_channels[1], out_channels[2], kernel_size=(3,1), padding=(1,0))
+        self.branch5x1_1 = nn.Conv2d(in_channels, out_channels[3], kernel_size=(1,1))
+        self.branch5x1_2 = nn.Conv2d(out_channels[3], out_channels[4], kernel_size=(5,1), padding=(2,0))
+        self.branch_pool_1 = nn.AvgPool2d(kernel_size=(3,1), padding=(1,0), stride=1)
+        self.branch_pool_2 = nn.Conv2d(in_channels, out_channels[5], kernel_size=(1,1))
+
+        
+    def forward(self,x): 
+        branch1x1 = self.branch1x1(x)
+        branch3x1 = self.branch3x1_1(x)
+        branch3x1 = self.branch3x1_2(branch3x1)
+        branch5x1 = self.branch5x1_1(x)
+        branch5x1 = self.branch5x1_2(branch5x1)
+        branch_pool = self.branch_pool_1(x)
+        branch_pool = self.branch_pool_2(branch_pool)
+        return torch.cat([branch1x1, branch3x1, branch5x1, branch_pool], axis=1)
+    
+    
+class InceptionModule_A(nn.Module):
+    def __init__(self,in_channels, *out_channels):
+        super(InceptionModule_A, self).__init__()
+        out_channels=out_channels[0]
+        self.relu = nn.ReLU()
+
+        self.branch1x1 = nn.Conv2d(in_channels, out_channels[0], kernel_size=(1,1))
+        self.branch3x1_1 = nn.Conv2d(in_channels, out_channels[1], kernel_size=(1,1))
+        self.branch3x1_2 = nn.Conv2d(out_channels[1], out_channels[2], kernel_size=(3,1), padding=(1,0))
+        self.branch5x1_1 = nn.Conv2d(in_channels, out_channels[3], kernel_size=(1,1))
+        self.branch5x1_2 = nn.Conv2d(out_channels[3], out_channels[3], kernel_size=(3,1), padding=(1,0))
+        self.branch5x1_3 = nn.Conv2d(out_channels[3], out_channels[4], kernel_size=(3,1), padding=(1,0))
+        self.branch_pool_1 = nn.AvgPool2d(kernel_size=(3,1), padding=(1,0), stride=1)
+        self.branch_pool_2 = nn.Conv2d(in_channels, out_channels[5], kernel_size=(1,1))
+        
+        self.branch1x1_bn = nn.BatchNorm2d(num_features=out_channels[0])
+        self.branch3x1_1_bn = nn.BatchNorm2d(num_features=out_channels[1])
+        self.branch3x1_2_bn = nn.BatchNorm2d(num_features=out_channels[2])
+        self.branch5x1_1_bn = nn.BatchNorm2d(num_features=out_channels[3])
+        self.branch5x1_2_bn = nn.BatchNorm2d(num_features=out_channels[3])
+        self.branch5x1_3_bn = nn.BatchNorm2d(num_features=out_channels[4])
+
+        self.branch_pool_2_bn = nn.BatchNorm2d(num_features=out_channels[5])
+
+        
+    def forward(self,x): 
+        branch1x1 = self.branch1x1_bn(self.relu(self.branch1x1(x)))
+        branch3x1 = self.branch3x1_1_bn(self.relu(self.branch3x1_1(x)))
+        branch3x1 = self.branch3x1_2_bn(self.relu(self.branch3x1_2(branch3x1)))
+        branch5x1 = self.branch5x1_1_bn(self.relu(self.branch5x1_1(x)))
+        branch5x1 = self.branch5x1_2_bn(self.relu(self.branch5x1_2(branch5x1)))
+        branch5x1 = self.branch5x1_3_bn(self.relu(self.branch5x1_3(branch5x1)))
+        branch_pool = self.branch_pool_1(x)
+        branch_pool = self.branch_pool_2_bn(self.relu(self.branch_pool_2(branch_pool)))
+        return torch.cat([branch1x1, branch3x1, branch5x1, branch_pool], axis=1)
+
+
+class InceptionEC(nn.Module):
+    def __init__(self, out_features):
+        super(InceptionEC, self).__init__()
+        self.explainECs = out_features
+    
+        input_channels = 64
+        self.cnn0 = nn.Conv2d(1, input_channels, kernel_size=(4,21))
+        self.batchnorm0 = nn.BatchNorm2d(num_features=input_channels)
+        self.relu = nn.ReLU()
+        self.inception = nn.Sequential(
+                            InceptionModule_A(input_channels, [64, 32, 128, 16, 32, 32]),
+#                             nn.ReLU(),
+                            InceptionModule_A(256, [128, 128, 192, 32, 96, 64]),
+#                             nn.ReLU(),
+                            InceptionModule_A(480, [192, 96, 208, 16, 48, 64]),
+#                             nn.ReLU(),
+                            InceptionModule_A(512, [160, 112, 224, 24, 64, 64]),
+#                             nn.ReLU(),
+                            InceptionModule_A(512, [128, 128, 256, 24, 64, 64]),
+#                             nn.ReLU(),
+#                             InceptionModule(512, [112, 144, 288, 32, 64, 64]),
+#                             nn.ReLU(),
+#                             InceptionModule(528, [256, 160, 320, 32, 128, 128])
+        )
+        self.max_pool = nn.MaxPool2d(kernel_size=(997, 1), stride=1)
+        self.fc = nn.Linear(in_features=512, out_features=len(out_features))
+        self.bn1 = nn.BatchNorm1d(num_features=len(out_features))
+        self.out_act = nn.Sigmoid()
+        
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+        
+        
+    def forward(self, x):
+        x = self.relu(self.batchnorm0(self.cnn0(x)))
+        x = self.inception(x)
+        x = self.max_pool(x)
+        x = x.view(-1, 512)
+        x = self.out_act(self.bn1(self.fc(x)))
+        return x
