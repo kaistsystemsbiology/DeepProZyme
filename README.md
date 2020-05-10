@@ -43,7 +43,7 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 
 - Run DeepTFactor
 
-        python tf_running.py -enz ./Dataset/example_tf.fasta -c ./output/tf_depptfactor/checkpoint.pt -o ./output/tf0/tf_depptfactor -g cuda:0
+        python tf_running.py -c ./trained_model/DeepTFactor_checkpoint.pt -enz ./Dataset/example_tf.fasta -o ./output/tf0/tf_depptfactor -g cuda:0
 
 - Run DeepEC predicion
 
