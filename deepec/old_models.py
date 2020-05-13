@@ -1019,3 +1019,203 @@ class CNN14(nn.Module):
         x += x1_1
         x = self.deconv2(x)
         return x
+
+
+
+class CNN15(nn.Module):
+    def __init__(self, out_feature):
+        super(CNN15, self).__init__()
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(3,21)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+        
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(in_channels=128, out_channels=512, kernel_size=(1,1)),
+            nn.BatchNorm2d(num_features=512),
+            nn.LeakyReLU()
+        )
+        
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(16,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(8,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(12,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(16,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+        
+
+        self.deconv1 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=128*3, out_channels=128*3, kernel_size=(7,1)),
+            nn.BatchNorm2d(num_features=128*3),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(in_channels=128*3, out_channels=128*3, kernel_size=(7,1)),
+            nn.BatchNorm2d(num_features=128*3),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(in_channels=128*3, out_channels=512, kernel_size=(7,1)),
+            nn.BatchNorm2d(num_features=512),
+            nn.LeakyReLU(),
+        )
+        
+        self.deconv2 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=512, out_channels=512, kernel_size=(3,1)),
+            nn.BatchNorm2d(num_features=512),
+            nn.LeakyReLU()
+        )
+
+        self.conv = nn.Conv2d(in_channels=512, out_channels=out_feature, kernel_size=(1,1))
+        
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x_res = self.conv2(x)
+        x1 = self.layer1(x)
+        x2 = self.layer2(x)
+        x3 = self.layer3(x)
+        x = torch.cat((x1, x2, x3), dim=1)
+        x = self.deconv1(x)
+        x = x + x_res
+        x = self.deconv2(x)
+        x = self.conv(x)
+        return x
+
+
+
+class CNN17(nn.Module):
+    def __init__(self, out_feature):
+        super(CNN17, self).__init__()
+
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.Conv2d(in_channels=128, out_channels=844, kernel_size=(1,1))
+        )
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(8,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.Conv2d(in_channels=128, out_channels=844, kernel_size=(1,1))
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(16,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.Conv2d(in_channels=128, out_channels=843, kernel_size=(1,1))
+        )
+        
+
+    def forward(self, x):
+        x1 = self.layer1(x)
+        x2 = self.layer2(x)
+        x3 = self.layer3(x)
+        x = torch.cat((x1, x2, x3), dim=1)
+        return x
+
+
+class CNN18(nn.Module):
+    def __init__(self, out_feature):
+        super(CNN18, self).__init__()
+        layer1_components = [nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21)),
+                             nn.BatchNorm2d(num_features=128),
+                             nn.LeakyReLU()]
+
+        for i in range(4):
+            layer1_components += [nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(4,1)),
+                                  nn.BatchNorm2d(num_features=128),
+                                  nn.LeakyReLU()]
+
+        self.layer1_1 = nn.Sequential(*layer1_components[0:3*2])
+        self.layer1_2 = nn.Sequential(*layer1_components[3*2:3*4])
+        self.layer1_3 = nn.Sequential(*layer1_components[3*4:])
+
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(9,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+
+
+        self.deconv1_1 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=128*3, out_channels=128, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+
+        self.deconv1_2 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(in_channels=128, out_channels=128, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128),
+            nn.LeakyReLU()
+        )
+
+        self.deconv2 = nn.Sequential(
+            nn.ConvTranspose2d(in_channels=128, out_channels=128*5, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128*5),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(in_channels=128*5, out_channels=128*5, kernel_size=(4,1)),
+            nn.BatchNorm2d(num_features=128*5),
+            nn.LeakyReLU()
+        )
+
+        self.conv = nn.Conv2d(in_channels=128*5, out_channels=out_feature, kernel_size=(1,1))
+
+        
+    def forward(self, x):
+        x1_1 = self.layer1_1(x)
+        x2 = self.layer2(x)
+        x3 = self.layer3(x)
+
+        x1_2 = self.layer1_2(x1_1)
+        x1_3 = self.layer1_3(x1_2)
+
+        x = torch.cat((x1_3, x2, x3), dim=1)
+        x = self.deconv1_1(x)
+        x += x1_2
+        x = self.deconv1_2(x)
+        x += x1_1
+        x = self.deconv2(x)
+        x = self.conv(x)
+        return x

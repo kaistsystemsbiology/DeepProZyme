@@ -290,31 +290,6 @@ class CNN0_03(nn.Module):
 
 class InceptionModule(nn.Module):
     def __init__(self,in_channels, *out_channels):
-        super(InceptionModule,self).__init__()
-
-        self.branch1x1 = nn.Conv2d(in_channels, out_channels[0], kernel_size=(1,1))
-        self.branch3x1_1 = nn.Conv2d(in_channels, out_channels[1], kernel_size=(1,1))
-        self.branch3x1_2 = nn.Conv2d(out_channels[1], out_channels[2], kernel_size=(3,1), padding=(1,1))
-        self.branch5x1_1 = nn.Conv2d(in_channels, out_channels[3], kernel_size=(1,1))
-        self.branch5x1_2 = nn.Conv2d(out_channels[3], out_channels[4], kernel_size=(5,1), padding=(1,2))
-        self.branch_pool_1 = nn.AvgPool2d(kernel_size=(3,1), padding=(1,1))
-        self.branch_pool_2 = nn.Conv2d(in_channels, out_channels[5], kernel_size=(1,1))
-
-        
-    def forward(self,x): 
-        branch1x1 = self.branch1x1(x)
-        branch3x1 = self.branch3x1_1(x)
-        branch3x1 = self.branch3x1_2(branch3x1)
-        branch5x1 = self.branch5x1_1(x)
-        branch5x1 = self.branch5x1_2(branch5x1)
-        branch_pool = self.branch_pool_1(x)
-        branch_pool = self.branch_pool_2(branch_pool)
-        return torch.cat([branch1x1, branch3x1, branch5x1, branch_pool], axis=1)
-
-
-
-class InceptionModule(nn.Module):
-    def __init__(self,in_channels, *out_channels):
         super(InceptionModule, self).__init__()
         out_channels=out_channels[0]
         self.relu = nn.ReLU()
@@ -387,18 +362,10 @@ class InceptionEC(nn.Module):
         self.relu = nn.ReLU()
         self.inception = nn.Sequential(
                             InceptionModule_A(input_channels, [64, 32, 128, 16, 32, 32]),
-#                             nn.ReLU(),
                             InceptionModule_A(256, [128, 128, 192, 32, 96, 64]),
-#                             nn.ReLU(),
                             InceptionModule_A(480, [192, 96, 208, 16, 48, 64]),
-#                             nn.ReLU(),
                             InceptionModule_A(512, [160, 112, 224, 24, 64, 64]),
-#                             nn.ReLU(),
                             InceptionModule_A(512, [128, 128, 256, 24, 64, 64]),
-#                             nn.ReLU(),
-#                             InceptionModule(512, [112, 144, 288, 32, 64, 64]),
-#                             nn.ReLU(),
-#                             InceptionModule(528, [256, 160, 320, 32, 128, 128])
         )
         self.max_pool = nn.MaxPool2d(kernel_size=(997, 1), stride=1)
         self.fc = nn.Linear(in_features=512, out_features=len(out_features))
