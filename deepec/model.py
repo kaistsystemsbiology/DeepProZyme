@@ -13,9 +13,9 @@ class DeepEC_CAM(nn.Module):
         if basal_net == 'CNN15':
             self.cnn0 = CNN15(out_features)
         elif basal_net == 'CNN16':
-            self.cnn0 = CNN16(out_features, blocks=25)
+            self.cnn0 = CNN16(out_features)
         elif basal_net == 'ResEC':
-            self.cnn0 = ResEC(out_features)
+            self.cnn0 = ResEC(out_features , blocks=15)
         else:
             raise ValueError
         self.fc = nn.Linear(in_features=out_features, out_features=out_features)
@@ -151,8 +151,8 @@ class ResTF(nn.Module):
 
 class ResEC(nn.Module):
     def __init__(self, out_features, blocks):
-        super(ResTF, self).__init__()
-        self.explainECs = out_features
+        super(ResEC, self).__init__()
+
         
         input_channels = 128
         self.input_channels = input_channels
@@ -167,11 +167,11 @@ class ResEC(nn.Module):
             
         self.layer = nn.Sequential(*layers)
 
-        deconv_components = [nn.ConvTranspose2d(in_channels=128*3, out_channels=512, kernel_size=(4,1)),
+        deconv_components = [nn.ConvTranspose2d(in_channels=128, out_channels=512, kernel_size=(4,1)),
                              nn.BatchNorm2d(num_features=512),
                              nn.LeakyReLU()]
         self.deconv = nn.Sequential(*deconv_components)
-        self.conv = nn.Conv2d(in_channels=512, out_channels=out_feature, kernel_size=(1,1))
+        self.conv = nn.Conv2d(in_channels=512, out_channels=out_features, kernel_size=(1,1))
 
         self.init_weights()
 
