@@ -117,7 +117,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC_CAM(out_features=len(explainECs), basal_net='CNN16')
+    model = DeepEC_CAM(out_features=len(explainECs), basal_net='ResEC')
     model.explainECs = explainECs
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
