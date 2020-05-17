@@ -21,7 +21,7 @@ from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, EarlyStopping, \
                   draw, save_losses, train_model, evalulate_model
     
-from deepec.model_CAM import DeepEC_GradCAM
+from deepec.model_CAM import DeepEC_GradCAM, DeepEC_CAM, DeepEC_CAM_2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -117,7 +117,10 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC_GradCAM(out_features=len(explainECs))
+    # model = DeepEC_GradCAM(out_features=len(explainECs))
+    # model = DeepEC_CAM(out_features=len(explainECs), basal_net='ResEC')
+    # model = DeepEC_CAM_2(out_features=len(explainECs), basal_net='ResEC_3')
+    model = DeepEC_CAM_2(out_features=len(explainECs), basal_net='CNN_04')
     model.explainECs = explainECs
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
