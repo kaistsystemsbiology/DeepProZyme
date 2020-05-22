@@ -111,8 +111,16 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}', map_location=device)
     model.load_state_dict(ckpt['model'])
 
-    accuracy = calculateTestAccuracy(model, testDataloader, device)
-    fpr, tpr = evalulate_model(model, testDataloader, len(testDataset), [1], device)
+    fpr, tpr, thrd = evalulate_model(model, testDataloader, len(testDataset), [1], device)
+    sensitivity = tpr
+    specificity = 1-fpr
+    j = sensitivity + specificity - 1
+    ind = np.argmax(j)
+    cutoff = thrd[ind]
+    ckpt['cutoff'] = cutoff
+    torch.save(ckpt, f'{output_dir}/{checkpt_file}',)
+    accuracy = calculateTestAccuracy(model, testDataloader, device, cutoff=cutoff)
+
     
     fig = plt.figure(figsize=(6,6))
     plt.plot(fpr, tpr, 'b',linewidth=2)
