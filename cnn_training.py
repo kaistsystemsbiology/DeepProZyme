@@ -140,5 +140,5 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    precision, recall, f1 = evalulate_model(model, testDataloader, 
+    fpr, tpr, threshold = evalulate_model(model, testDataloader, 
                                             len(testDataset), explainECs, device)
