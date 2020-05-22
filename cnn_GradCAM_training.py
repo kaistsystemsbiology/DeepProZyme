@@ -119,8 +119,8 @@ if __name__ == '__main__':
 
     # model = DeepEC_GradCAM(out_features=len(explainECs))
     # model = DeepEC_CAM(out_features=len(explainECs), basal_net='ResEC')
-    # model = DeepEC_CAM_2(out_features=len(explainECs), basal_net='ResEC_3')
-    model = DeepEC_CAM_2(out_features=len(explainECs), basal_net='CNN_04')
+    model = DeepEC_CAM_2(out_features=len(explainECs), basal_net='ResEC_3')
+    # model = DeepEC_CAM_2(out_features=len(explainECs), basal_net='CNN_04')
     model.explainECs = explainECs
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
@@ -143,4 +143,4 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    y_true, y_pred = evalulate_model(model, testDataloader, len(testDataset), explainECs, device)
+    fpr, tpr, threshold = evalulate_model(model, testDataloader, len(testDataset), explainECs, device)
