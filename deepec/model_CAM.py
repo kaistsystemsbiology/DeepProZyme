@@ -303,7 +303,8 @@ class DeepEC_CAM_2(nn.Module):
             self.cnn0 = ResEC_3(out_features , blocks=10)
         else:
             raise ValueError
-        self.fc = nn.Linear(in_features=out_features, out_features=out_features)
+        # self.fc = nn.Linear(in_features=out_features, out_features=out_features)
+        self.fc = nn.Linear(in_features=512, out_features=out_features)
         self.bn1 = nn.BatchNorm1d(num_features=out_features)
         self.out_act = nn.Sigmoid()
       
@@ -343,8 +344,8 @@ class DeepEC_CAM_2(nn.Module):
     def forward(self, x):
         x = self.cnn0(x)
         x = torch.sum(x, axis=[2,3])
-        # x = x.view(-1, 512) # check the number
-        x = x.view(-1, self.num_ECs)
+        x = x.view(-1, 512) # check the number
+        # x = x.view(-1, self.num_ECs)
         # x = self.out_act(self.bn1(self.fc(x)))
         x = self.out_act(self.fc(x))
         return x
