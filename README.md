@@ -31,7 +31,7 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 
 - Train CAM
 
-        python cnn_CAM_training.py -o ./output/cnn_CAM -g cuda:1 -e 30 -b 128 -r 1e-3 -third False
+        python cnn3_CAM_training.py -t ./Dataset/processedUniRefSeq.fasta -o ./output/cnn_CAM -g cuda:1 -e 30 -b 128 -r 1e-3 -third False
 
 - Evaluate DeepEC
 
