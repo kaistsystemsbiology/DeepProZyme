@@ -118,6 +118,7 @@ if __name__ == '__main__':
     ind = np.argmax(j)
     cutoff = thrd[ind]
     ckpt['cutoff'] = cutoff
+    logging.info(f'Cutoff of the prediction score: {cutoff}')
     torch.save(ckpt, f'{output_dir}/{checkpt_file}',)
     accuracy = calculateTestAccuracy(model, testDataloader, device, cutoff=cutoff)
 
