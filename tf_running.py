@@ -31,13 +31,6 @@ if __name__ == '__main__':
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-
-    seed_num = 123 # random seed for reproducibility
-    torch.manual_seed(seed_num)
-    random.seed(seed_num)
-    torch.cuda.manual_seed_all(seed_num)
-    np.random.seed(seed_num)
-
     torch.set_num_threads(num_cpu)
 
     protein_seqs, seq_ids = read_actual_Fasta(protein_data_file)
