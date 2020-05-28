@@ -80,6 +80,9 @@ if __name__ == '__main__':
     len_valid_seq = len(valid_data[0])
     len_test_seq = len(test_data[0])
 
+    logging.info(f'TF sequence dir: {enzyme_data_file}')
+    logging.info(f'Non-TF sequence dir: {nonenzyme_data_file}')
+
     logging.info(f'Number of sequences used- Train: {len_train_seq}')
     logging.info(f'Number of sequences used- Validation: {len_valid_seq}')
     logging.info(f'Number of sequences used- Test: {len_test_seq}')
