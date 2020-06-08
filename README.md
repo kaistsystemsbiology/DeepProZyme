@@ -39,12 +39,18 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 
 - Train DeepTFactor
 
-        python tf_training.py -enz ./Dataset/processedTFSeq_extended.fasta -nonenz ./Dataset/processedNonTFSeq_extended.fasta -o ./output/tf_depptfactor -g cuda:1  -e 30 -b 256 -r 1e-3
+        python tf_training.py -enz ./Dataset/processedTFSeq_extended.fasta -nonenz ./Dataset/processedNonTFSeq_extended.fasta -o ./output/tf_deeptfactor -g cuda:1  -e 30 -b 256 -r 1e-3
 
 - Run DeepTFactor
 
-        python tf_running.py -c ./trained_model/DeepTFactor_checkpoint.pt -enz ./Dataset/example_tf.fasta -o ./output/tf0/tf_depptfactor -g cuda:0
+        python tf_running.py -c ./trained_model/DeepTFactor_checkpoint.pt -enz ./Dataset/example_tf.fasta -o ./output/tf0/tf_deeptfactor -g cuda:0
 
 - Run DeepEC predicion
 
         python cnn_running.py -enz ./Dataset/example_tf.fasta -c ./output/ec7_cnn3_03/checkpoint.pt -o ./output/ec7_cnn3_03/prediction_result -g cuda:0
+
+
+
+- Run DeepTFactor on test_seqs
+
+        python tf_run_on_test_seqs.py -c ./output/tf_deeptfactor_20200601_16/checkpoint.pt -enz ../../../SeqData/y-ome/tf_deeptfactor_20200601_test_tf/test_sequences_tf_20200601.fasta -nonenz ../../../SeqData/y-ome/tf_deeptfactor_20200601_test_nontf/test_sequences_nontf_20200601.fasta -o ./output/tf_deeptfactor_20200601_16/test_sequences_pred -g cuda:0
