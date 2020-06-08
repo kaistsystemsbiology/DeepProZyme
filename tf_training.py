@@ -71,7 +71,7 @@ if __name__ == '__main__':
 
     enzyme_seqs = read_SP_Fasta(enzyme_data_file)
     nonenzyme_seqs = read_SP_Fasta(nonenzyme_data_file)
-    nonenzyme_seqs = random.sample(nonenzyme_seqs, len(enzyme_seqs))
+    nonenzyme_seqs = random.sample(nonenzyme_seqs, len(enzyme_seqs) * 3)
 
     train_data, valid_data, test_data = \
         split_EnzNonenz(enzyme_seqs, nonenzyme_seqs, seed_num)
