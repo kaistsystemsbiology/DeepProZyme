@@ -229,11 +229,11 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
     fpr, tpr, threshold = roc_curve(y_true, y_score)
     roc_auc = auc(fpr, tpr)
     logging.info(f'AUC: {roc_auc: 0.6f}')
-    return fpr, tpr
+    return fpr, tpr, threshold
 
 
 
-def calculateTestAccuracy(model, testDataloader, device):
+def calculateTestAccuracy(model, testDataloader, device, cutoff=0.5):
     with torch.no_grad():
         model.eval()
         n=0
@@ -245,7 +245,7 @@ def calculateTestAccuracy(model, testDataloader, device):
             test_seq = x.to(device)
             test_label = y.to(device)
             output = model(test_seq)
-            prediction = output > 0.5
+            prediction = output > cutoff
             prediction = prediction.float()
             prediction = prediction.cpu()
 

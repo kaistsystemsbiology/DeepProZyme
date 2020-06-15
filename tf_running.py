@@ -31,13 +31,6 @@ if __name__ == '__main__':
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-
-    seed_num = 123 # random seed for reproducibility
-    torch.manual_seed(seed_num)
-    random.seed(seed_num)
-    torch.cuda.manual_seed_all(seed_num)
-    np.random.seed(seed_num)
-
     torch.set_num_threads(num_cpu)
 
     protein_seqs, seq_ids = read_actual_Fasta(protein_data_file)
@@ -51,6 +44,7 @@ if __name__ == '__main__':
 
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
     model.load_state_dict(ckpt['model'])
+    cutoff = ckpt['cutoff']
 
     y_pred = torch.zeros([len(seq_ids), 1])
     with torch.no_grad():
@@ -68,7 +62,7 @@ if __name__ == '__main__':
     with open(f'{output_dir}/prediction_result.txt', 'w') as fp:
         fp.write('sequence_ID\tprediction\tscore\n')
         for seq_id, score in zip(seq_ids, scores):
-            if score > 0.5:
+            if score > cutoff:
                 tf = True
             else:
                 tf = False
