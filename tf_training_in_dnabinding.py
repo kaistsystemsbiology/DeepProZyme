@@ -68,11 +68,14 @@ if __name__ == '__main__':
                   \tLearning rate: {learning_rate}')
 
 
-    enzyme_seqs = read_SP_Fasta(enzyme_data_file)
-    nonenzyme_seqs = read_SP_Fasta(nonenzyme_data_file)
+    tf_seqs = read_SP_Fasta(enzyme_data_file)
+    nontf_dna_binding_seqs = read_SP_Fasta(nonenzyme_data_file)
+    nontf_nondna_binding_seqs = read_SP_Fasta('./Dataset/processedNonTF_NonDNAbinding_20200601.fasta')
+    nontf_nondna_binding_seqs = random.sample(nontf_nondna_binding_seqs, len(nontf_dna_binding_seqs) * 1)
+    nontf_seqs = nontf_dna_binding_seqs + nontf_nondna_binding_seqs
 
     train_data, valid_data, test_data = \
-        split_EnzNonenz(enzyme_seqs, nonenzyme_seqs, seed_num)
+        split_EnzNonenz(tf_seqs, nontf_seqs, seed_num)
 
     len_train_seq = len(train_data[0])
     len_valid_seq = len(valid_data[0])
