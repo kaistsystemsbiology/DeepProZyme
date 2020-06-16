@@ -51,7 +51,7 @@ if __name__ == '__main__':
         model.eval()
         cnt = 0
         for x, _ in proteinDataloader:
-            x = x.type(torch.FloatTensor)
+            # x = x.type(torch.FloatTensor)
             x_length = x.shape[0]
             output = model(x.to(device))
             prediction = output.cpu()
