@@ -38,7 +38,7 @@ class CNN0(nn.Module):
                   16 -> 4
     '''
     def __init__(self):
-        super(CNN0_1, self).__init__()
+        super(CNN0, self).__init__()
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.1)
            
