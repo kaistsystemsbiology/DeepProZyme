@@ -21,7 +21,7 @@ from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, EarlyStopping, \
                          draw, save_losses, train_model, evalulate_model
     
-from deepec.old_models import DeepEC
+from deepec.model import DeepECv2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -73,6 +73,8 @@ if __name__ == '__main__':
 
 
     input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+    input_seqs = input_seqs[:2000]
+    input_ecs = input_ecs[:2000]
 
     train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
     train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
@@ -92,13 +94,15 @@ if __name__ == '__main__':
 
 
     explainECs = []
+    # explainECs = list(
+    #     set(train_ecs) | set(val_ecs) | set(test_ecs)
+    # )
     for ec_data in [train_ecs, val_ecs, test_ecs]:
         for ecs in ec_data:
             for each_ec in ecs:
                 if each_ec not in explainECs:
                     explainECs.append(each_ec)
     explainECs.sort()
-
 
     if third_level:
         logging.info('Predict EC number upto third level')
@@ -109,6 +113,26 @@ if __name__ == '__main__':
     else:
         logging.info('Predict EC number upto fourth level')
 
+    train_ec_types = []
+    for ecs in train_ecs:
+        for each_ec in ecs:
+            if each_ec not in train_ec_types:
+                train_ec_types.append(each_ec)
+    val_ec_types = []
+    for ecs in val_ecs:
+        for each_ec in ecs:
+            if each_ec not in val_ec_types:
+                val_ec_types.append(each_ec)
+    test_ec_types = []
+    for ecs in test_ecs:
+        for each_ec in ecs:
+            if each_ec not in test_ec_types:
+                test_ec_types.append(each_ec)
+
+    logging.info(f'Number of ECs in train data: {len(train_ec_types)}')
+    logging.info(f'Number of ECs in validation data: {len(val_ec_types)}')
+    logging.info(f'Number of ECs in test data: {len(test_ec_types)}')
+
     trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
     valDataset = ECDataset(val_seqs, val_ecs, explainECs)
     testDataset = ECDataset(test_seqs, test_ecs, explainECs)
@@ -118,7 +142,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=explainECs, basal_net='CNN0')
+    model = DeepECv2(out_features=explainECs)
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -140,5 +164,6 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    fpr, tpr, threshold = evalulate_model(model, testDataloader, 
-                                            len(testDataset), explainECs, device)
+    fpr, tpr, threshold = evalulate_model(
+        model, testDataloader, len(testDataset), explainECs, device
+        )
