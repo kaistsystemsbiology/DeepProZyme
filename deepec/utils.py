@@ -158,10 +158,8 @@ def train_model(model, optimizer, criterion, device,
         valid_losses = torch.zeros(len(train_loader)).to(device)
         model.train() # training session with train dataset
         for batch, (data, label) in enumerate(train_loader):
-            # data = data.type(torch.FloatTensor)
-            label = label.type(torch.FloatTensor)
-            data = data.to(device)
-            label = label.to(device)
+            data = data.type(torch.FloatTensor).to(device)
+            label = label.type(torch.FloatTensor).to(device)
             optimizer.zero_grad()
             output = model(data)
             loss = criterion(output, label)
@@ -174,10 +172,8 @@ def train_model(model, optimizer, criterion, device,
         model.eval() # validation session with validation dataset
         with torch.no_grad():
             for batch, (data, label) in enumerate(valid_loader):
-                # data = data.type(torch.FloatTensor)
-                label = label.type(torch.FloatTensor)
-                data = data.to(device)
-                label = label.to(device)
+                data = data.type(torch.FloatTensor).to(device)
+                label = label.type(torch.FloatTensor).to(device)
                 output = model(data)
                 loss = criterion(output, label)
 
@@ -205,7 +201,7 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
         logging.info('Prediction starts on test dataset')
         cnt = 0
         for batch, (data, label) in enumerate(test_loader):
-            # data = data.type(torch.FloatTensor)
+            data = data.type(torch.FloatTensor)
             label = label.type(torch.FloatTensor)
             data = data.to(device)
             label = label.to(device)
@@ -226,10 +222,11 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
         f1 = f1_score(y_true, y_pred, average='macro')
 
     logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
-    fpr, tpr, threshold = roc_curve(y_true, y_score)
-    roc_auc = auc(fpr, tpr)
-    logging.info(f'AUC: {roc_auc: 0.6f}')
-    return fpr, tpr, threshold
+    return None, None, None
+    # fpr, tpr, threshold = roc_curve(y_true, y_score)
+    # roc_auc = auc(fpr, tpr)
+    # logging.info(f'AUC: {roc_auc: 0.6f}')
+    # return fpr, tpr, threshold
 
 
 
@@ -240,7 +237,7 @@ def calculateTestAccuracy(model, testDataloader, device, cutoff=0.5):
         test_loss=0
         test_acc=0
         for x, y in testDataloader:
-            # x = x.type(torch.FloatTensor)
+            x = x.type(torch.FloatTensor)
             y = y.type(torch.FloatTensor)
             test_seq = x.to(device)
             test_label = y.to(device)
