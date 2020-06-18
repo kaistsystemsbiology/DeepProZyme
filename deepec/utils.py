@@ -154,9 +154,12 @@ def train_model(model, optimizer, criterion, device,
     
     logging.info('Training start')
     for epoch in range(n_epochs):
-        train_losses = torch.zeros(len(train_loader)).to(device)
-        valid_losses = torch.zeros(len(train_loader)).to(device)
+        train_losses = 0
+        valid_losses = 0
+        # train_losses = torch.zeros(len(train_loader)).to(device)
+        # valid_losses = torch.zeros(len(train_loader)).to(device)
         model.train() # training session with train dataset
+        n = 0
         for batch, (data, label) in enumerate(train_loader):
             data = data.type(torch.FloatTensor).to(device)
             label = label.type(torch.FloatTensor).to(device)
@@ -166,10 +169,14 @@ def train_model(model, optimizer, criterion, device,
             loss.backward()
             optimizer.step()
 
-            train_losses[batch] = loss.item()
-        avg_train_losses[epoch] = torch.mean(train_losses)
+            # train_losses[batch] = loss.item()
+            train_losses += loss.item()
+            n += data.size(0)
+        avg_train_losses[epoch] = train_losses / n
+        # avg_train_losses[epoch] = torch.mean(train_losses)
 
         model.eval() # validation session with validation dataset
+        n = 0
         with torch.no_grad():
             for batch, (data, label) in enumerate(valid_loader):
                 data = data.type(torch.FloatTensor).to(device)
@@ -177,9 +184,12 @@ def train_model(model, optimizer, criterion, device,
                 output = model(data)
                 loss = criterion(output, label)
 
-                valid_losses[batch] = loss.item()
+                # valid_losses[batch] = loss.item()
+                valid_losses += loss.item()
+                n += data.size(0)
             
-            valid_loss = torch.mean(valid_losses)
+            # valid_loss = torch.mean(valid_losses)
+            valid_loss = valid_losses / n
             avg_valid_losses[epoch] = valid_loss
         
         # decide whether to stop or not based on validation loss
@@ -216,17 +226,10 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
         logging.info('Prediction Ended on test dataset')
 
         y_true = y_true.numpy()
+        y_score = y_score.numpy()
         y_pred = y_pred.numpy()
-        precision = precision_score(y_true, y_pred, average='macro')
-        recall = recall_score(y_true, y_pred, average='macro')
-        f1 = f1_score(y_true, y_pred, average='macro')
 
-    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
-    return None, None, None
-    # fpr, tpr, threshold = roc_curve(y_true, y_score)
-    # roc_auc = auc(fpr, tpr)
-    # logging.info(f'AUC: {roc_auc: 0.6f}')
-    # return fpr, tpr, threshold
+    return y_true, y_score, y_pred
 
 
 
