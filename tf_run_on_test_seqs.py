@@ -67,8 +67,8 @@ if __name__ == '__main__':
 
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
     model.load_state_dict(ckpt['model'])
-    cutoff = ckpt['cutoff']
-    # cutoff = 0.5
+    # cutoff = ckpt['cutoff']
+    cutoff = 0.5
 
     fp = open(f'{output_dir}/prediction_result.txt', 'w')
     fp.write('sequence_ID\ttype\tprediction\tscore\n')
