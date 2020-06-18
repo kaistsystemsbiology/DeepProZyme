@@ -2,6 +2,37 @@
 import torch
 import torch.nn as nn
 
+class DeepTFactor_2(nn.Module):
+    def __init__(self, out_features):
+        super(DeepTFactor_2, self).__init__()
+        self.explainECs = out_features
+        # self.embedding = nn.Embedding(1000, 21) # 20 AA + X + blank
+        self.cnn0 = CNN0()
+        self.fc1 = nn.Linear(in_features=128*3, out_features=512)
+        self.bn1 = nn.BatchNorm1d(num_features=512)
+        self.fc2 = nn.Linear(in_features=512, out_features=len(out_features))
+        self.bn2 = nn.BatchNorm1d(num_features=len(out_features))
+        self.out_act = nn.Sigmoid()
+        self.relu = nn.ReLU()
+        self.init_weights()
+
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+
+        
+    def forward(self, x):
+        # x = self.embedding(x)
+        x = self.cnn0(x)
+        x = x.view(-1, 128*3)
+        x = self.relu(self.bn1(self.fc1(x)))
+        x = self.out_act(self.bn2(self.fc2(x)))
+        return x
+
 
 class DeepTFactor(nn.Module):
     def __init__(self, out_features):
