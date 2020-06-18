@@ -4,6 +4,8 @@ import logging
 # import basic python packages
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
+from sklearn.metrics import f1_score, precision_score, recall_score
 # import torch packages
 import torch
 import torch.nn as nn
@@ -114,7 +116,19 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}', map_location=device)
     model.load_state_dict(ckpt['model'])
 
-    fpr, tpr, thrd = evalulate_model(model, testDataloader, len(testDataset), [1], device)
+    logging.info('Accuracy analysis at cutoff 0.5')
+    accuracy = calculateTestAccuracy(model, testDataloader, device, cutoff=0.5)
+
+    y_true, y_score, y_pred = evalulate_model(model, testDataloader, len(testDataset), [1], device)
+    precision = precision_score(y_true, y_pred, average='macro')
+    recall = recall_score(y_true, y_pred, average='macro')
+    f1 = f1_score(y_true, y_pred, average='macro')
+    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+
+    fpr, tpr, threshold = roc_curve(y_true, y_score)
+    roc_auc = auc(fpr, tpr)
+    logging.info(f'AUC: {roc_auc: 0.6f}')
+    
     sensitivity = tpr
     specificity = 1-fpr
     j = sensitivity + specificity - 1
@@ -123,6 +137,7 @@ if __name__ == '__main__':
     ckpt['cutoff'] = cutoff
     logging.info(f'Cutoff of the prediction score: {cutoff}')
     torch.save(ckpt, f'{output_dir}/{checkpt_file}',)
+    logging.info('Accuracy analysis at new the cutoff')
     accuracy = calculateTestAccuracy(model, testDataloader, device, cutoff=cutoff)
 
     
