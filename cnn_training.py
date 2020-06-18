@@ -73,8 +73,6 @@ if __name__ == '__main__':
 
 
     input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
-    input_seqs = input_seqs[:2000]
-    input_ecs = input_ecs[:2000]
 
     train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
     train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
@@ -94,9 +92,6 @@ if __name__ == '__main__':
 
 
     explainECs = []
-    # explainECs = list(
-    #     set(train_ecs) | set(val_ecs) | set(test_ecs)
-    # )
     for ec_data in [train_ecs, val_ecs, test_ecs]:
         for ecs in ec_data:
             for each_ec in ecs:
@@ -164,6 +159,11 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    fpr, tpr, threshold = evalulate_model(
+    y_true, y_score, y_pred = evalulate_model(
         model, testDataloader, len(testDataset), explainECs, device
         )
+    precision = precision_score(y_true, y_pred, average='macro')
+    recall = recall_score(y_true, y_pred, average='macro')
+    f1 = f1_score(y_true, y_pred, average='macro')
+    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    
