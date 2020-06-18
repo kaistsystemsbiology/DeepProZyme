@@ -27,11 +27,7 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 
 - Train CNN3
 
-        python cnn_training.py -t ./Dataset/processedUniRefSeq.fasta -o ./output/ec7_cnn3_01 -g cuda:0 -e 30 -b 128 -r 1e-3 -p 5 -third False
-
-- Train CAM
-
-        python cnn3_CAM_training.py -t ./Dataset/processedUniRefSeq.fasta -o ./output/cnn_CAM -g cuda:1 -e 30 -b 128 -r 1e-3 -third False
+        python cnn_training.py -t ./Dataset/DeepEC_v2_input_sequences.fa -o ./output/deepec_v2_01 -g cuda:0 -e 50 -b 128 -r 1e-3 -p 5 -third False
 
 - Evaluate DeepEC
 
