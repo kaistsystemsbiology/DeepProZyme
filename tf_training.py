@@ -19,7 +19,7 @@ from deepec.data_loader import EnzymeDataset
 from deepec.utils import argument_parser, EarlyStopping, \
                   draw, save_losses, train_model, calculateTestAccuracy, evalulate_model
     
-from deepec.tf_models import DeepTFactor
+from deepec.tf_models import DeepTFactor_2 as DeepTFactor
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     f1 = f1_score(y_true, y_pred, average='macro')
     logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
 
-    fpr, tpr, threshold = roc_curve(y_true, y_score)
+    fpr, tpr, thrd = roc_curve(y_true, y_score)
     roc_auc = auc(fpr, tpr)
     logging.info(f'AUC: {roc_auc: 0.6f}')
     
