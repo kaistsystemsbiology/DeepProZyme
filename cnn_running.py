@@ -21,7 +21,7 @@ from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, EarlyStopping, \
                          draw, save_losses, train_model, evalulate_model
     
-from deepec.old_models import DeepEC
+from deepec.model import DeepECv2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -55,7 +55,7 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
     explainECs = ckpt['explainECs']
 
-    model = DeepEC(out_features=explainECs, basal_net='CNN0')
+    model = DeepECv2(out_features=explainECs)
     model = model.to(device)
     model.load_state_dict(ckpt['model'])
 
@@ -83,5 +83,11 @@ if __name__ == '__main__':
     with open(f'{output_dir}/prediction_result.txt', 'w') as fp:
         fp.write('sequence_ID\tprediction\n')
         for i, ith_pred in enumerate(y_pred):
-            for j in ith_pred.nonzero():
-                fp.write(f'{input_ids[i]}\t{explainECs[j]}\n')
+            if len(ith_pred.nonzero()) == 0:
+                fp.write(f'{input_ids[i]}\tNone\n')
+                continue
+            pred_ecs = [explainECs[j] for j in ith_pred.nonzero()]
+            pred_ecs = ';'.join(pred_ecs)
+            fp.write(f'{input_ids[i]}\t{pred_ecs}\n')
+            # for j in ith_pred.nonzero():
+            #     fp.write(f'{input_ids[i]}\t{explainECs[j]}\n')
