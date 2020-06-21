@@ -1,3 +1,18 @@
+python tf_training.py -enz ./Dataset/processedTFSeq_20200601.fasta -nonenz ./Dataset/processedNonTFSeq_20200601.fasta -o ./output/tf_deeptfactor_20200617_17 -g cuda:0 -e 50 -b 16 -r 0.0001
+python tf_running.py -c ./output/tf_deeptfactor_20200617_17/checkpoint.pt -enz ./Dataset/ecoli_k12_mg1655.fasta -o ./output/tf_deeptfactor_20200617_17/prediction_result -g cuda:0
+python tf_running.py -c ./output/tf_deeptfactor_20200617_17/checkpoint.pt -enz ./Dataset/processedNonTF_DNAbinding_20200601.fasta -o ./output/tf_deeptfactor_20200617_17/nontf_dna_binding_seq_results -g cuda:0
+python tf_running.py -c ./output/tf_deeptfactor_20200617_17/checkpoint.pt -enz ../../../SeqData/DeepTFactor_additional/new_seq_TF_prokaryote_20200530.fasta -o ./output/tf_deeptfactor_20200617_17/new_prokaryote_tf -g cuda:0
+python tf_running.py -c ./output/tf_deeptfactor_20200617_17/checkpoint.pt -enz ../../../SeqData/DeepTFactor_additional/new_seq_NonTF_prokaryote_20200530.fasta -o ./output/tf_deeptfactor_20200617_17/new_prokaryote_nontf -g cuda:0
+
+python tf_training.py -enz ./Dataset/processedTFSeq_20200601.fasta -nonenz ./Dataset/processedNonTFSeq_20200601.fasta -o ./output/tf_deeptfactor_20200617_18 -g cuda:0  -e 50 -b 16 -r 0.0003
+python tf_running.py -c ./output/tf_deeptfactor_20200617_18/checkpoint.pt -enz ./Dataset/ecoli_k12_mg1655.fasta -o ./output/tf_deeptfactor_20200617_18/prediction_result -g cuda:0
+python tf_running.py -c ./output/tf_deeptfactor_20200617_18/checkpoint.pt -enz ./Dataset/processedNonTF_DNAbinding_20200601.fasta -o ./output/tf_deeptfactor_20200617_18/nontf_dna_binding_seq_results -g cuda:0
+python tf_running.py -c ./output/tf_deeptfactor_20200617_18/checkpoint.pt -enz ../../../SeqData/DeepTFactor_additional/new_seq_TF_prokaryote_20200530.fasta -o ./output/tf_deeptfactor_20200617_18/new_prokaryote_tf -g cuda:0
+python tf_running.py -c ./output/tf_deeptfactor_20200617_18/checkpoint.pt -enz ../../../SeqData/DeepTFactor_additional/new_seq_NonTF_prokaryote_20200530.fasta -o ./output/tf_deeptfactor_20200617_18/new_prokaryote_nontf -g cuda:0
+
+
+
+
 python tf_training_in_dnabinding.py -enz ./Dataset/processedTFSeq_20200601.fasta -nonenz ./Dataset/processedNonTF_DNAbinding_20200601.fasta -o ./output/tf_deeptfactor_in_dna_20200608_01 -g cuda:0  -e 50 -b 16 -r 0.0001
 python tf_running.py -c ./output/tf_deeptfactor_in_dna_20200608_01/checkpoint.pt -enz ./Dataset/ecoli_k12_mg1655.fasta -o ./output/tf_deeptfactor_in_dna_20200608_01/prediction_result -g cuda:0
 python tf_running.py -c ./output/tf_deeptfactor_in_dna_20200608_01/checkpoint.pt -enz ./Dataset/processedNonTF_DNAbinding_20200601.fasta -o ./output/tf_deeptfactor_in_dna_20200608_01/nontf_dna_binding_seq_results -g cuda:0
