@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_actual_Fasta
 from deepec.data_loader import EnzymeDataset
 from deepec.utils import argument_parser
-from deepec.tf_models import DeepTFactor
+from deepec.tf_models import DeepTFactor_2 as DeepTFactor
 
 
 
