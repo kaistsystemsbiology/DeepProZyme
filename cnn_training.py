@@ -4,6 +4,8 @@ import logging
 # import basic python packages
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 # import torch packages
 import torch
