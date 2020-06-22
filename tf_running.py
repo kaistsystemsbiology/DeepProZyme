@@ -44,7 +44,8 @@ if __name__ == '__main__':
 
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
     model.load_state_dict(ckpt['model'])
-    cutoff = ckpt['cutoff']
+    # cutoff = ckpt['cutoff']
+    cutoff = 0.5
 
     y_pred = torch.zeros([len(seq_ids), 1])
     with torch.no_grad():
