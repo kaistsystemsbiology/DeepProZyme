@@ -40,7 +40,7 @@ def argument_parser(version=None):
                         default=1e-3, help='Learning rate')
     parser.add_argument('-p', '--patience', required=False, type=int,
                         default=5, help='Patience limit for early stopping')
-    parser.add_argument('-c', '--checkpoint', required=False, 
+    parser.add_argument('-ckpt', '--checkpoint', required=False, 
                         default='checkpoint.pt', help='Checkpoint file')
     parser.add_argument('-t', '--seq_file', required=False, 
                         default='./Dataset/ec_seq.fa', help='Sequence data')
