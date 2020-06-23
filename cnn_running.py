@@ -21,7 +21,7 @@ from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, EarlyStopping, \
                          draw, save_losses, train_model, evalulate_model
     
-from deepec.model import DeepECv2
+from deepec.model import DeepECv2_3 as DeepECv2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
