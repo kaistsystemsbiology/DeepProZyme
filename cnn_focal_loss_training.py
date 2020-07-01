@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 2
+    gamma = 3
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
