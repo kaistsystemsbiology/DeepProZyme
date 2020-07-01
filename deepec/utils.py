@@ -97,7 +97,7 @@ class EarlyStopping:
 
     def save_checkpoint(self, val_loss, model, optimizer, epoch):
         if self.verbose:
-            logging.info(f'Validation loss decreased ({self.val_loss_min:.9f} --> {val_loss:.9f}).  Saving model ...')
+            logging.info(f'Validation loss decreased ({self.val_loss_min:.12f} --> {val_loss:.12f}).  Saving model ...')
         
         ckpt = {'model':model.state_dict(),
                 'optimizer':optimizer.state_dict(),
@@ -137,7 +137,7 @@ def save_losses(avg_train_losses, avg_valid_losses, output_dir, file_name='losse
         cnt = 0
         for train_loss, valid_loss in zip(avg_train_losses, avg_valid_losses):
             cnt += 1
-            fp.write(f'{cnt}\t{train_loss:9f}\t{valid_loss:9f}\n')
+            fp.write(f'{cnt}\t{train_loss:0.12f}\t{valid_loss:0.12f}\n')
     return
 
 
@@ -214,16 +214,19 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
             data = data.type(torch.FloatTensor)
             label = label.type(torch.FloatTensor)
             data = data.to(device)
-            label = label.to(device)
+            # label = label.to(device)
             output = model(data)
             prediction = output > 0.5
-            prediction = prediction.float()
+            prediction = prediction.float().cpu()
 
-            y_pred[cnt:cnt+data.shape[0]] = prediction.cpu()
+            y_pred[cnt:cnt+data.shape[0]] = prediction
             y_score[cnt:cnt+data.shape[0]] = output.cpu()
-            y_true[cnt:cnt+data.shape[0]] = label.cpu()
+            y_true[cnt:cnt+data.shape[0]] = label
             cnt += data.shape[0]
         logging.info('Prediction Ended on test dataset')
+
+        del data
+        del output
 
         y_true = y_true.numpy()
         y_score = y_score.numpy()
