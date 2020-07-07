@@ -113,7 +113,16 @@ class EarlyStopping:
 def draw(avg_train_losses, avg_valid_losses, output_dir, file_name='CNN_loss_fig.png'):
     fig = plt.figure(figsize=(9,6))
 
+    min_valid_loss = min(avg_valid_losses)
+    min_train_loss = min(avg_train_losses)
     min_position = avg_valid_losses.index(min(avg_valid_losses)) + 1
+    if min_valid_loss == 0 and min_train_loss == 0:
+        avg_train_losses = avg_train_losses[:min_position]
+        avg_valid_losses = avg_valid_losses[:min_position]   
+
+        min_valid_loss = min(avg_valid_losses)
+        min_train_loss = min(avg_train_losses)
+        min_position = avg_valid_losses.index(min(avg_valid_losses)) + 1 
 
     plt.plot(range(1, len(avg_train_losses)+1), avg_train_losses, label='Training loss')
     plt.plot(range(1, len(avg_valid_losses)+1), avg_valid_losses, label='Validation loss')
