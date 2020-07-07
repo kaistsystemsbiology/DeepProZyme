@@ -97,7 +97,7 @@ class EarlyStopping:
 
     def save_checkpoint(self, val_loss, model, optimizer, epoch):
         if self.verbose:
-            logging.info(f'Validation loss decreased ({self.val_loss_min:.12f} --> {val_loss:.12f}).  Saving model ...')
+            logging.info(f'Epoch {epoch}: Validation loss decreased ({self.val_loss_min:.12f} --> {val_loss:.12f}).  Saving model ...')
         
         ckpt = {'model':model.state_dict(),
                 'optimizer':optimizer.state_dict(),
@@ -343,3 +343,92 @@ def _getCommonECs(ec3_pred, ec4_pred, ec2ec_map, device):
         common_EC = ec4_activemap * ec4_pred[i]
         common_pred[i] = common_EC
     return common_pred
+
+
+
+def train_model_sch(model, optimizer, criterion, device,
+               scheduler, batch_size, patience, n_epochs, 
+               train_loader, valid_loader, save_name='checkpoint.pt'):
+    early_stopping = EarlyStopping(
+                                save_name=save_name, 
+                                patience=patience, 
+                                verbose=True)
+
+    avg_train_losses = torch.zeros(n_epochs).to(device)
+    avg_valid_losses = torch.zeros(n_epochs).to(device)
+    
+    logging.info('Training start')
+    for epoch in range(n_epochs):
+        train_losses = 0
+        valid_losses = 0
+        model.train() # training session with train dataset
+        n = 0
+        for batch, (data, label) in enumerate(train_loader):
+            data = data.type(torch.FloatTensor).to(device)
+            label = label.type(torch.FloatTensor).to(device)
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, label)
+            loss.backward()
+            optimizer.step()
+
+
+            train_losses += loss.item()
+            n += data.size(0)
+        avg_train_losses[epoch] = train_losses / n
+        scheduler.step() # lr scheduling
+        model.eval() # validation session with validation dataset
+        n = 0
+        with torch.no_grad():
+            for batch, (data, label) in enumerate(valid_loader):
+                data = data.type(torch.FloatTensor).to(device)
+                label = label.type(torch.FloatTensor).to(device)
+                output = model(data)
+                loss = criterion(output, label)
+                valid_losses += loss.item()
+                n += data.size(0)
+            
+            valid_loss = valid_losses / n
+            avg_valid_losses[epoch] = valid_loss
+        
+        # decide whether to stop or not based on validation loss
+        early_stopping(valid_loss, model, optimizer, epoch) 
+        if early_stopping.early_stop:
+            logging.info('Early stopping')
+            break
+            
+    logging.info('Training end')
+    return model, avg_train_losses.tolist(), avg_valid_losses.tolist()
+
+
+def evalulate_model_emb(model, test_loader, num_data, explainECs, device):
+    model.eval() # training session with train dataset
+    with torch.no_grad():
+        y_pred = torch.zeros([num_data, len(explainECs)])
+        y_score = torch.zeros([num_data, len(explainECs)])
+        y_true = torch.zeros([num_data, len(explainECs)])
+        logging.info('Prediction starts on test dataset')
+        cnt = 0
+        for batch, (data, label) in enumerate(test_loader):
+            data = data.type(torch.FloatTensor)
+            label = label.type(torch.FloatTensor)
+            data = data.to(device)
+            # label = label.to(device)
+            output = model(data)
+            prediction = output > 0.5
+            prediction = prediction.float().cpu()
+
+            y_pred[cnt:cnt+data.shape[0]] = prediction
+            y_score[cnt:cnt+data.shape[0]] = output.cpu()
+            y_true[cnt:cnt+data.shape[0]] = label
+            cnt += data.shape[0]
+        logging.info('Prediction Ended on test dataset')
+
+        del data
+        del output
+
+        y_true = y_true.numpy()
+        y_score = y_score.numpy()
+        y_pred = y_pred.numpy()
+
+    return y_true, y_score, y_pred
