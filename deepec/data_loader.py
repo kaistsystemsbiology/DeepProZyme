@@ -115,7 +115,7 @@ class ECEmbedDataset(Dataset):
 
 
     def convert2onehot_seq(self, single_seq, max_seq=1000):
-        single_onehot = np.zeros((max_seq, len(self.map_AA)))
+        single_onehot = np.zeros((max_seq))
         for i, x in enumerate(single_seq):
             single_onehot[i] = np.asarray(self.map_AA[x])
         return single_onehot
