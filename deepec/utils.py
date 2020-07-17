@@ -165,8 +165,6 @@ def train_model(model, optimizer, criterion, device,
     for epoch in range(n_epochs):
         train_losses = 0
         valid_losses = 0
-        # train_losses = torch.zeros(len(train_loader)).to(device)
-        # valid_losses = torch.zeros(len(train_loader)).to(device)
         model.train() # training session with train dataset
         n = 0
         for batch, (data, label) in enumerate(train_loader):
@@ -178,11 +176,9 @@ def train_model(model, optimizer, criterion, device,
             loss.backward()
             optimizer.step()
 
-            # train_losses[batch] = loss.item()
             train_losses += loss.item()
             n += data.size(0)
         avg_train_losses[epoch] = train_losses / n
-        # avg_train_losses[epoch] = torch.mean(train_losses)
 
         model.eval() # validation session with validation dataset
         n = 0
@@ -192,12 +188,9 @@ def train_model(model, optimizer, criterion, device,
                 label = label.type(torch.FloatTensor).to(device)
                 output = model(data)
                 loss = criterion(output, label)
-
-                # valid_losses[batch] = loss.item()
                 valid_losses += loss.item()
                 n += data.size(0)
             
-            # valid_loss = torch.mean(valid_losses)
             valid_loss = valid_losses / n
             avg_valid_losses[epoch] = valid_loss
         
@@ -410,6 +403,62 @@ def train_model_sch(model, optimizer, criterion, device,
     return model, avg_train_losses.tolist(), avg_valid_losses.tolist()
 
 
+
+def train_model_emb_sch(model, optimizer, criterion, device,
+               scheduler, batch_size, patience, n_epochs, 
+               train_loader, valid_loader, save_name='checkpoint.pt'):
+    early_stopping = EarlyStopping(
+                                save_name=save_name, 
+                                patience=patience, 
+                                verbose=True)
+
+    avg_train_losses = torch.zeros(n_epochs).to(device)
+    avg_valid_losses = torch.zeros(n_epochs).to(device)
+    
+    logging.info('Training start')
+    for epoch in range(n_epochs):
+        train_losses = 0
+        valid_losses = 0
+        model.train() # training session with train dataset
+        n = 0
+        for batch, (data, label) in enumerate(train_loader):
+            data = data.type(torch.LongTensor).to(device)
+            label = label.type(torch.FloatTensor).to(device)
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, label)
+            loss.backward()
+            optimizer.step()
+
+
+            train_losses += loss.item()
+            n += data.size(0)
+        avg_train_losses[epoch] = train_losses / n
+        scheduler.step() # lr scheduling
+        model.eval() # validation session with validation dataset
+        n = 0
+        with torch.no_grad():
+            for batch, (data, label) in enumerate(valid_loader):
+                data = data.type(torch.LongTensor).to(device)
+                label = label.type(torch.FloatTensor).to(device)
+                output = model(data)
+                loss = criterion(output, label)
+                valid_losses += loss.item()
+                n += data.size(0)
+            
+            valid_loss = valid_losses / n
+            avg_valid_losses[epoch] = valid_loss
+        
+        # decide whether to stop or not based on validation loss
+        early_stopping(valid_loss, model, optimizer, epoch) 
+        if early_stopping.early_stop:
+            logging.info('Early stopping')
+            break
+            
+    logging.info('Training end')
+    return model, avg_train_losses.tolist(), avg_valid_losses.tolist()
+
+
 def evalulate_model_emb(model, test_loader, num_data, explainECs, device):
     model.eval() # training session with train dataset
     with torch.no_grad():
@@ -419,9 +468,8 @@ def evalulate_model_emb(model, test_loader, num_data, explainECs, device):
         logging.info('Prediction starts on test dataset')
         cnt = 0
         for batch, (data, label) in enumerate(test_loader):
-            data = data.type(torch.FloatTensor)
+            data = data.type(torch.LongTensor).to(device)
             label = label.type(torch.FloatTensor)
-            data = data.to(device)
             # label = label.to(device)
             output = model(data)
             prediction = output > 0.5
