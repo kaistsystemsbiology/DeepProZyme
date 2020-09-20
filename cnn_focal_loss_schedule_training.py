@@ -41,6 +41,9 @@ class FocalLoss(nn.Module):
             self.alpha = torch.Tensor(alpha).view(-1, 1)
         
     def forward(self, pred, label):
+        # pt = label*pred + (1-label)*(1-pred)
+        # loss = -(1-pt).pow(self.gamma) * (self.alpha*torch.log(pt))
+        # return loss.mean()
         BCE_loss = F.binary_cross_entropy_with_logits(pred, label, reduction='none')
         pt = torch.exp(-BCE_loss) # prevents nans when probability 0
         focal_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
@@ -84,7 +87,7 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 2
+    gamma = 3
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
@@ -167,8 +170,8 @@ if __name__ == '__main__':
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = FocalLoss(gamma=gamma)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
-    logging.info(f'Learning rate scheduling: step size: 5\tgamma: 0.5')
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.9)
+    logging.info(f'Learning rate scheduling: step size: 1\tgamma: 0.9')
 
     model, avg_train_losses, avg_valid_losses = train_model_sch(
         model, optimizer, criterion, device,
