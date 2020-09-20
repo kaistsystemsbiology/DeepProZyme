@@ -19,10 +19,10 @@ from deepec.process_data import read_EC_Fasta, \
                                 convertECtoLevel3
 
 
-from deepec.data_loader import ECEmbedDataset as ECDataset
+from deepec.data_loader import ECDataset
 
 from deepec.utils import argument_parser, EarlyStopping, \
-                         draw, save_losses, train_model_emb_sch, evalulate_model_emb
+                         draw, save_losses, train_model_sch, evalulate_model
     
 # from deepec.model import DeepECv2_2 as DeepECv2
 
@@ -65,8 +65,8 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
-                               stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=(3, 1),
+                               stride=stride, padding=(1, 0), bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
         self.conv3 = nn.Conv2d(planes, self.expansion *
                                planes, kernel_size=1, bias=False)
@@ -89,22 +89,104 @@ class Bottleneck(nn.Module):
         return out
 
 
+# class ResEC(nn.Module):
+#     def __init__(self, block, num_blocks, explainECs=[]):
+#         super(ResEC, self).__init__()
+#         self.explainECs = explainECs
+#         num_classes = len(explainECs)
+#         self.in_planes = 64
+#         # self.embedding = nn.Embedding(21, 10) # 20 AA + X + blank
+#         self.conv1 = nn.Conv2d(1, 64, kernel_size=(3, 21),
+#                                stride=1, padding=(1, 0), bias=False)
+#         self.bn1 = nn.BatchNorm2d(64)
+#         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
+#         self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
+#         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
+#         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
+#         self.linear = nn.Linear(512*block.expansion, num_classes)
+#         self.pool = nn.MaxPool2d(kernel_size=(125,1), )
+
+#     def _make_layer(self, block, planes, num_blocks, stride):
+#         strides = [stride] + [1]*(num_blocks-1)
+#         layers = []
+#         for stride in strides:
+#             layers.append(block(self.in_planes, planes, stride))
+#             self.in_planes = planes * block.expansion
+#         return nn.Sequential(*layers)
+
+#     def forward(self, x):
+#         # x = self.embedding(x.type(torch.long))
+#         out = F.relu(self.bn1(self.conv1(x)))
+#         out = self.layer1(out)
+#         out = self.layer2(out)
+#         out = self.layer3(out)
+#         out = self.layer4(out)
+#         out = self.pool(out)
+#         out = out.view(out.size(0), -1)
+#         out = self.linear(out)
+#         return out
+
+
+# class ResEC(nn.Module):
+#     # Compound scaling: 1.2 * 1.3^2 * 1.0^2 ~ 2
+#     # depth = 1.2^a width = 1.3^b resolution = 1
+#     def __init__(self, block, num_blocks, explainECs=[]):
+#         super(ResEC, self).__init__()
+#         self.explainECs = explainECs
+#         num_classes = len(explainECs)
+#         self.in_planes = 64
+#         # self.embedding = nn.Embedding(21, 10) # 20 AA + X + blank
+#         self.conv1 = nn.Conv2d(1, 64, kernel_size=(3, 21),
+#                                stride=1, padding=(1, 0), bias=False)
+#         self.bn1 = nn.BatchNorm2d(64)
+#         self.layer1 = self._make_layer(block, 83, num_blocks[0], stride=1)
+#         self.layer2 = self._make_layer(block, 166, num_blocks[1], stride=2)
+#         self.layer3 = self._make_layer(block, 332, num_blocks[2], stride=2)
+#         self.layer4 = self._make_layer(block, 665, num_blocks[3], stride=2)
+#         # self.linear = nn.Linear(512*block.expansion, num_classes)
+#         self.linear = nn.Linear(665, num_classes)
+#         self.pool = nn.MaxPool2d(kernel_size=(125,1), )
+
+#     def _make_layer(self, block, planes, num_blocks, stride):
+#         strides = [stride] + [1]*(num_blocks-1)
+#         layers = []
+#         for stride in strides:
+#             layers.append(block(self.in_planes, planes, stride))
+#             self.in_planes = planes * block.expansion
+#         return nn.Sequential(*layers)
+
+#     def forward(self, x):
+#         # x = self.embedding(x.type(torch.long))
+#         out = F.relu(self.bn1(self.conv1(x)))
+#         out = self.layer1(out)
+#         out = self.layer2(out)
+#         out = self.layer3(out)
+#         out = self.layer4(out)
+#         out = self.pool(out)
+#         out = out.view(out.size(0), -1)
+#         out = self.linear(out)
+#         return out
+
+
 class ResEC(nn.Module):
+    # Compound scaling: 1.2 * 1.3^2 * 1.0^2 ~ 2
+    # depth = 1.2^a width = 1.3^b resolution = 1
     def __init__(self, block, num_blocks, explainECs=[]):
         super(ResEC, self).__init__()
         self.explainECs = explainECs
         num_classes = len(explainECs)
         self.in_planes = 64
-        self.embedding = nn.Embedding(21, 10) # 20 AA + X + blank
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=3,
-                               stride=1, padding=1, bias=False)
+        # self.embedding = nn.Embedding(21, 10) # 20 AA + X + blank
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=(3, 21),
+                               stride=1, padding=(1, 0), bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
-        self.linear = nn.Linear(512*block.expansion, num_classes)
-        self.pool = nn.MaxPool2d(kernel_size=(125,2), stride=1)
+        self.layer1 = self._make_layer(block, 108, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, 216, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, 432, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(block, 865, num_blocks[3], stride=2)
+        # self.linear = nn.Linear(512*block.expansion, num_classes)
+        self.linear = nn.Linear(865, num_classes)
+        self.pool = nn.MaxPool2d(kernel_size=(125,1), )
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -115,7 +197,7 @@ class ResEC(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        x = self.embedding(x.type(torch.long))
+        # x = self.embedding(x.type(torch.long))
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.layer2(out)
@@ -125,8 +207,6 @@ class ResEC(nn.Module):
         out = out.view(out.size(0), -1)
         out = self.linear(out)
         return out
-
-
 
 
 class FocalLoss(nn.Module):
@@ -139,9 +219,6 @@ class FocalLoss(nn.Module):
             self.alpha = torch.Tensor(alpha).view(-1, 1)
         
     def forward(self, pred, label):
-        # pt = label*pred + (1-label)*(1-pred)
-        # loss = -(1-pt).pow(self.gamma) * (self.alpha*torch.log(pt))
-        # return loss.mean()
         BCE_loss = F.binary_cross_entropy_with_logits(pred, label, reduction='none')
         pt = torch.exp(-BCE_loss) # prevents nans when probability 0
         focal_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
@@ -261,7 +338,9 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = ResEC(Bottleneck, [1, 1, 1, 1], explainECs=explainECs)
+    # model = ResEC(Bottleneck, [1, 1, 1, 1], explainECs=explainECs)
+    # model = ResEC(Bottleneck, [1, 2, 1, 1], explainECs=explainECs)
+    model = ResEC(Bottleneck, [2, 2, 1, 1], explainECs=explainECs)
     logging.info(f'Model Architecture: \n{model}')
     model = model.to(device)
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -271,10 +350,10 @@ if __name__ == '__main__':
     logging.info('Adam Optimizer')
     # optimizer = optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=1e-5)
     criterion = FocalLoss(gamma=gamma)
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=3, gamma=0.9)
-    logging.info(f'Learning rate scheduling: step size: 3\tgamma: 0.9')
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
+    logging.info(f'Learning rate scheduling: step size: 5\tgamma: 0.5')
 
-    model, avg_train_losses, avg_valid_losses = train_model_emb_sch(
+    model, avg_train_losses, avg_valid_losses = train_model_sch(
         model, optimizer, criterion, device,
         scheduler, batch_size, patience, num_epochs, 
         trainDataloader, validDataloader,
@@ -287,7 +366,7 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    y_true, y_score, y_pred = evalulate_model_emb(
+    y_true, y_score, y_pred = evalulate_model(
         model, testDataloader, len(testDataset), explainECs, device
         )
     precision = precision_score(y_true, y_pred, average='macro')
