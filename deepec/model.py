@@ -1,6 +1,7 @@
 # import torch packages
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 
 class CNN0(nn.Module):
@@ -197,4 +198,86 @@ class DeepECv2_3(nn.Module):
         x = self.relu(self.bn1(self.fc1(x)))
         x = self.bn2(self.fc2(x))
         # x = self.out_act(x)
+        return x
+
+
+class Bottleneck(nn.Module):
+    expansion = 1
+
+    def __init__(self, in_planes, planes, stride=1):
+        super(Bottleneck, self).__init__()
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=(3, 1),
+                               stride=stride, padding=(1, 0), bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.conv3 = nn.Conv2d(planes, self.expansion *
+                               planes, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(self.expansion*planes)
+
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_planes != self.expansion*planes:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_planes, self.expansion*planes,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(self.expansion*planes)
+            )
+
+    def forward(self, x):
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = F.relu(self.bn2(self.conv2(out)))
+        out = self.bn3(self.conv3(out))
+        out += self.shortcut(x)
+        out = F.relu(out)
+        return out
+
+        
+class DeepEC_emb(nn.Module):
+    def __init__(self, explainECs, num_blocks, block=Bottleneck):
+        super(DeepEC_emb, self).__init__()
+        self.explainECs = explainECs
+        self.in_planes = 64 
+
+        self.embedding = nn.Embedding(21, 10) # 20 AA + X + blank
+        self.conv = nn.Conv2d(1, 64, kernel_size=(3, 10),
+                              stride=1, padding=(1, 0), bias=False)
+        self.bn = nn.BatchNorm2d(64)
+        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=1)
+        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=1)
+        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=1)
+        self.linear = nn.Linear(512*block.expansion, len(explainECs))
+        self.pool = nn.MaxPool2d(kernel_size=(1000-3, 1))
+        self.relu = nn.ReLU()
+
+        self.init_weights()
+
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+
+
+    def _make_layer(self, block, planes, num_blocks, stride):
+        strides = [stride] + [1]*(num_blocks-1)
+        layers = []
+        for stride in strides:
+            layers.append(block(self.in_planes, planes, stride))
+            self.in_planes = planes * block.expansion
+        return nn.Sequential(*layers)
+
+        
+    def forward(self, x):
+        x = self.embedding(x.type(torch.long))
+        x = self.relu(self.bn(self.conv(x)))
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        x = self.pool(x)
+        x = x.view(x.size(0), -1)
+        x = self.linear(x)
         return x
