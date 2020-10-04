@@ -8,6 +8,7 @@ import numpy as np
 # import torch packages
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 # import scikit learn packages
 from sklearn.metrics import roc_curve, auc, roc_auc_score
@@ -147,6 +148,7 @@ def evalulate(config):
             data = data.type(torch.FloatTensor).to(device)
             label = label.type(torch.FloatTensor)
             output = model(data)
+            output = torch.sigmoid(output)
             prediction = output > 0.5
             prediction = prediction.float().cpu()
 
