@@ -162,7 +162,9 @@ if __name__ == '__main__':
 
 
     # model = DeepEC(out_features=explainECs).to(device)
-    model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
+#     model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
+    # model = DeepEC_emb(explainECs=explainECs, num_blocks=[2, 3, 2, 1]).to(device)
+    model = DeepEC_emb(explainECs=explainECs, num_blocks=[3, 4, 3, 1]).to(device)
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
@@ -187,8 +189,8 @@ if __name__ == '__main__':
 
 
     avg_train_losses, avg_val_losses = train(config)
-    save_losses(avg_train_losses, avg_valid_losses, output_dir=output_dir)
-    draw(avg_train_losses, avg_valid_losses, output_dir=output_dir)
+    save_losses(avg_train_losses, avg_val_losses, output_dir=output_dir)
+    draw(avg_train_losses, avg_val_losses, output_dir=output_dir)
 
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
