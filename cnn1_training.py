@@ -3,8 +3,9 @@ import random
 import logging
 # import basic python packages
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 # import torch packages
 import torch
@@ -12,19 +13,42 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from deepec.process_data import read_SP_Fasta, split_EnzNonenz
-
-from deepec.data_loader import EnzymeDataset
-
-from deepec.utils import argument_parser, EarlyStopping, \
-                         draw, save_losses, train_model, \
-                         calculateTestAccuracy, evalulate_model
-    
-from deepec.old_models import DeepEC
+from deepec.process_data import read_EC_Fasta
+from deepec.data_loader import EnzymeDataset, EnzymeEmbedDataset
+from deepec.utils import argument_parser, draw, save_losses, FocalLoss
+from deepec.train import train, evalulate
+from deepec.model import DeepECv2_3, DeepEC_emb
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
+
+
+class DeepECConfig():
+    def __init__(self,
+                 model = None,
+                 optimizer = None,
+                 criterion = None,
+                 scheduler = None,
+                 n_epochs = 50,
+                 device = 'cpu',
+                 patience = 5,
+                 save_name = './deepec.log',
+                 train_source = None,
+                 val_source = None, 
+                 test_source = None):
+        super().__init__()
+        self.model = model
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.scheduler = scheduler
+        self.n_epochs = num_epochs
+        self.device = device
+        self.patience = patience
+        self.save_name = save_name
+        self.train_source = trainDataloader
+        self.val_source = validDataloader
+        self.test_source = testDataloader
 
 
 if __name__ == '__main__':
@@ -41,10 +65,9 @@ if __name__ == '__main__':
     patience = options.patience
 
     checkpt_file = options.checkpoint
+    input_data_file = options.seq_file
 
-    enzyme_data_file = options.enzyme_data
-    nonenzyme_data_file = options.nonenzyme_data
-
+    third_level = options.third_level
     num_cpu = options.cpu_num
 
     if not os.path.exists(output_dir):
@@ -65,65 +88,82 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
+    gamma = 3
+
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
+                  \tGamma: {gamma}\
                   \tBatch size: {batch_size}\
-                  \tLearning rate: {learning_rate}')
+                  \tLearning rate: {learning_rate}\
+                  \tPredict upto 3 level: {third_level}')
+
+
+    input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+
+    train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
+    train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
+    # train_ids, test_ids = train_test_split(input_ids, test_size=0.1, random_state=seed_num)
+
+    train_seqs, val_seqs = train_test_split(train_seqs, test_size=1/9, random_state=seed_num)
+    train_ecs, val_ecs = train_test_split(train_ecs, test_size=1/9, random_state=seed_num)
+    # train_ids, val_ids = train_test_split(input_ids, test_size=1/9, random_state=seed_num)
+
+
+    logging.info(f'Number of sequences used- Train: {len(train_seqs)}')
+    logging.info(f'Number of sequences used- Validation: {len(val_seqs)}')
+    logging.info(f'Number of sequences used- Test: {len(test_seqs)}')
 
 
 
-    enzyme_seqs = read_SP_Fasta(enzyme_data_file)
-    nonenzyme_seqs = read_SP_Fasta(nonenzyme_data_file)
-
-    train_data, valid_data, test_data = \
-        split_EnzNonenz(enzyme_seqs, nonenzyme_seqs, seed_num)
-
-    len_train_seq = len(train_data[0])
-    len_valid_seq = len(valid_data[0])
-    len_test_seq = len(test_data[0])
-
-    logging.info(f'Number of sequences used- Train: {len_train_seq}')
-    logging.info(f'Number of sequences used- Validation: {len_valid_seq}')
-    logging.info(f'Number of sequences used- Test: {len_test_seq}')
-
-
-    trainDataset = EnzymeDataset(train_data[0], train_data[1])
-    valDataset = EnzymeDataset(valid_data[0], valid_data[1])
-    testDataset = EnzymeDataset(test_data[0], test_data[1])
+    # trainDataset = EnzymeDataset(train_seqs, train_ecs)
+    # valDataset = EnzymeDataset(val_seqs, val_ecs)
+    # testDataset = EnzymeDataset(test_seqs, test_ecs)
+    trainDataset = EnzymeEmbedDataset(train_seqs, train_ecs)
+    valDataset = EnzymeEmbedDataset(val_seqs, val_ecs)
+    testDataset = EnzymeEmbedDataset(test_seqs, test_ecs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=[1])
+    # model = DeepEC(out_features=[0]).to(device)
+#     model = DeepEC_emb(explainECs=[0], num_blocks=[1, 2, 1, 1]).to(device)
+    model = DeepEC_emb(explainECs=[0], num_blocks=[2, 3, 2, 1]).to(device)
+    # model = DeepEC_emb(explainECs=[0], num_blocks=[3, 4, 3, 1]).to(device)
     logging.info(f'Model Architecture: \n{model}')
-    model = model.to(device)
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
 
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, )
+    criterion = FocalLoss(gamma=gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
+    logging.info(f'Learning rate scheduling: step size: 1\tgamma: 0.95')
 
-    model, avg_train_losses, avg_valid_losses = train_model(
-        model, optimizer, criterion, device,
-        batch_size, patience, num_epochs, 
-        trainDataloader, validDataloader,
-        f'{output_dir}/{checkpt_file}'
-        )
+    config = DeepECConfig()
+    config.model = model 
+    config.optimizer = optimizer
+    config.criterion = criterion
+    config.scheduler = scheduler
+    config.n_epochs = num_epochs
+    config.device = device
+    config.save_name = f'{output_dir}/{checkpt_file}'
+    config.patience = patience
+    config.train_source = trainDataloader
+    config.val_source = validDataloader
+    config.test_source = testDataloader
 
 
-    save_losses(avg_train_losses, avg_valid_losses, output_dir=output_dir)
-    draw(avg_train_losses, avg_valid_losses, output_dir=output_dir)
+    avg_train_losses, avg_val_losses = train(config)
+    save_losses(avg_train_losses, avg_val_losses, output_dir=output_dir)
+    draw(avg_train_losses, avg_val_losses, output_dir=output_dir)
 
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    accuracy = calculateTestAccuracy(model, testDataloader, device)
-    fpr, tpr = evalulate_model(model, testDataloader, len(testDataset), [1], device)
+    y_true, y_score, y_pred = evalulate(config)
+    precision = precision_score(y_true, y_pred, average='macro')
+    recall = recall_score(y_true, y_pred, average='macro')
+    f1 = f1_score(y_true, y_pred, average='macro')
+    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
-    fig = plt.figure(figsize=(6,6))
-    plt.plot(fpr, tpr, 'b',linewidth=2)
-    plt.xlim(left=0, right=1)
-    plt.ylim(bottom=0, top=1)
-    plt.savefig(output_dir + '/AUC_curve.png')
