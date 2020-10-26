@@ -14,13 +14,8 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_EC_actual_Fasta, \
                                 getExplainedEC_short, \
                                 convertECtoLevel3
-
-
 from deepec.data_loader import ECDataset
-
-from deepec.utils import argument_parser, EarlyStopping, \
-                         draw, save_losses, train_model, evalulate_model
-    
+from deepec.utils import argument_parser
 from deepec.model import DeepECv2_3 as DeepECv2
 
 logger = logging.getLogger()
@@ -35,7 +30,7 @@ if __name__ == '__main__':
 
     output_dir = options.output_dir
     checkpt_file = options.checkpoint
-    input_data_file = options.enzyme_data
+    input_data_file = options.seq_file
 
     device = options.gpu
     num_cpu = options.cpu_num
@@ -74,7 +69,7 @@ if __name__ == '__main__':
             data = data.type(torch.FloatTensor)
             data = data.to(device)
             output = model(data)
-            prediction = output > 0.5
+            prediction = torch.sigmoid(output) > 0.5
             prediction = prediction.float()
             y_pred[cnt:cnt+data.shape[0]] = prediction.cpu()
             cnt += data.shape[0]
