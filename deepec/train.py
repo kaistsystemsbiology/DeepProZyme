@@ -18,7 +18,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 
 # early stopping with validation dataset 
 class EarlyStopping:
-    def __init__(self, save_name='checkpoint.pt', patience=5, verbose=False, delta=0):
+    def __init__(self, save_name='checkpoint.pt', patience=5, verbose=False, delta=0, explainProts=[]):
         self.save_name = save_name
         self.patience = patience
         self.verbose = verbose
@@ -27,6 +27,7 @@ class EarlyStopping:
         self.early_stop = False
         self.val_loss_min = np.Inf
         self.delta = delta
+        self.explainProts = explainProts
 
     def __call__(self, model, optimizer, epoch, val_loss):
         score = -val_loss
@@ -52,7 +53,7 @@ class EarlyStopping:
                 'optimizer':optimizer.state_dict(),
                 'best_acc':self.best_score,
                 'epoch':epoch,
-                'explainECs':model.explainECs}
+                'explainECs':self.explainProts}
         torch.save(ckpt, self.save_name)
         self.val_loss_min = val_loss
 
@@ -104,7 +105,8 @@ def eval_model(config):
 def train(config):
     early_stopping = EarlyStopping(save_name=config.save_name, 
                                    patience=config.patience, 
-                                   verbose=True
+                                   verbose=True,
+                                   explainProts=config.explainProts
                                    )
 
     device = config.device
@@ -135,7 +137,7 @@ def evalulate(config):
     model = config.model
     model.eval() # training session with train dataset
     num_data = config.test_source.dataset.__len__()
-    len_ECs = len(model.explainECs)
+    len_ECs = len(config.explainProts)
     device = config.device
 
     with torch.no_grad():
