@@ -194,5 +194,10 @@ if __name__ == '__main__':
     precision = precision_score(y_true, y_pred, average='macro')
     recall = recall_score(y_true, y_pred, average='macro')
     f1 = f1_score(y_true, y_pred, average='macro')
-    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    logging.info(f'(Macro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    
+    precision = precision_score(y_true, y_pred, average='micro')
+    recall = recall_score(y_true, y_pred, average='micro')
+    f1 = f1_score(y_true, y_pred, average='micro')
+    logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
