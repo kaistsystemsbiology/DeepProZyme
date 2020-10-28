@@ -56,15 +56,7 @@ def argument_parser(version=None):
     parser.add_argument('-resume', '--training_resume', required=False, type=boolean_string,
                         default=False, help='Resume training based on the previous checkpoint')
     parser.add_argument('-cpu', '--cpu_num', required=False, type=int,
-                        default=1, help='Number of cpus to use')
-
-    parser.add_argument('-c1', '--checkpoint_CNN1', required=False, 
-                        default='checkpoint.pt', help='Checkpoint file for CNN1')
-    parser.add_argument('-c2', '--checkpoint_CNN2', required=False, 
-                        default='checkpoint.pt', help='Checkpoint file for CNN2')
-    parser.add_argument('-c3', '--checkpoint_CNN3', required=False, 
-                        default='checkpoint.pt', help='Checkpoint file for CNN3')
-    
+                        default=1, help='Number of cpus to use')    
     return parser
 
 
@@ -74,16 +66,11 @@ def argument_parser(version=None):
 def draw(avg_train_losses, avg_valid_losses, output_dir, file_name='CNN_loss_fig.png'):
     fig = plt.figure(figsize=(9,6))
 
-    min_valid_loss = min(avg_valid_losses)
-    min_train_loss = min(avg_train_losses)
-    min_position = avg_valid_losses.index(min(avg_valid_losses)) + 1
-    if min_valid_loss == 0 and min_train_loss == 0:
-        avg_train_losses = avg_train_losses[:min_position]
-        avg_valid_losses = avg_valid_losses[:min_position]   
-
-        min_valid_loss = min(avg_valid_losses)
-        min_train_loss = min(avg_train_losses)
-        min_position = avg_valid_losses.index(min(avg_valid_losses)) + 1 
+    avg_train_losses = np.array(avg_train_losses)
+    avg_train_losses = avg_train_losses[avg_train_losses.nonzero()]
+    avg_valid_losses = np.array(avg_valid_losses)
+    avg_valid_losses = avg_valid_losses[avg_valid_losses.nonzero()]
+    min_position = avg_valid_losses.argmin()+1
 
     plt.plot(range(1, len(avg_train_losses)+1), avg_train_losses, label='Training loss')
     plt.plot(range(1, len(avg_valid_losses)+1), avg_valid_losses, label='Validation loss')
