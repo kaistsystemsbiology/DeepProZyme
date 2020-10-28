@@ -168,3 +168,124 @@ def evalulate(config):
         y_pred = y_pred.numpy()
 
     return y_true, y_score, y_pred
+
+
+
+######################
+
+
+def train_model_emb(config):
+    device = config.device 
+    train_loader = config.train_source
+    train_loader_emb = config.train_source_emb
+    model = config.model
+    optimizer = config.optimizer
+    criterion = config.criterion
+    train_losses = 0
+    n = 0
+
+    model.train()
+    for (data, label), (data_emb, _) in zip(train_loader, train_loader_emb):
+        data = data.type(torch.float).to(device)
+        data_emb = data_emb.type(torch.long).to(device)
+        label = label.type(torch.float).to(device)
+        optimizer.zero_grad()
+        output = model(data, data_emb)
+        loss = criterion(output, label)
+        loss.backward()
+        optimizer.step()
+
+        train_losses += loss.item()
+        n += data.size(0)
+    return train_losses/n
+
+
+def eval_model_emb(config):
+    device = config.device
+    val_loader = config.val_source
+    val_loader_emb = config.val_source_emb
+    model = config.model
+    criterion = config.criterion
+    valid_losses = 0
+    n = 0
+
+    model.eval()
+    with torch.no_grad():
+        for (data, label), (data_emb, _) in zip(val_loader, val_loader_emb):
+            data = data.type(torch.float).to(device)
+            data_emb = data_emb.type(torch.long).to(device)
+            label = label.type(torch.float).to(device)
+            output = model(data, data_emb)
+            loss = criterion(output, label)
+            valid_losses += loss.item()
+            n += data.size(0)
+    return valid_losses/n
+
+
+def train_emb(config):
+    early_stopping = EarlyStopping(save_name=config.save_name, 
+                                   patience=config.patience, 
+                                   verbose=True,
+                                   explainProts=config.explainProts
+                                   )
+
+    device = config.device
+    n_epochs = config.n_epochs
+
+    avg_train_losses = torch.zeros(n_epochs).to(device)
+    avg_valid_losses = torch.zeros(n_epochs).to(device)
+    
+    logging.info('Training start')
+    for epoch in range(n_epochs):
+        train_loss = train_model_emb(config)
+        valid_loss = eval_model_emb(config)
+        if config.scheduler != None:
+            config.scheduler.step()
+
+        avg_train_losses[epoch] = train_loss
+        avg_valid_losses[epoch] = valid_loss
+        early_stopping(config.model, config.optimizer, epoch, valid_loss)
+        if early_stopping.early_stop:
+            logging.info('Early stopping')
+            break
+            
+    logging.info('Training end')
+    return avg_train_losses.tolist(), avg_valid_losses.tolist()
+
+
+def evalulate_emb(config):
+    model = config.model
+    model.eval() # training session with train dataset
+    num_data = config.test_source.dataset.__len__()
+    len_ECs = len(config.explainProts)
+    device = config.device
+
+    with torch.no_grad():
+        y_pred = torch.zeros([num_data, len_ECs])
+        y_score = torch.zeros([num_data, len_ECs])
+        y_true = torch.zeros([num_data, len_ECs])
+        logging.info('Prediction starts on test dataset')
+        cnt = 0
+        for (data, label), (data_emb, _), in zip(config.test_source, config.test_source_emb):
+            data = data.type(torch.float).to(device)
+            data_emb = data_emb.type(torch.long).to(device)
+            label = label.type(torch.float)
+            output = model(data, data_emb)
+            output = torch.sigmoid(output)
+            prediction = output > 0.5
+            prediction = prediction.float().cpu()
+
+            y_pred[cnt:cnt+data.shape[0]] = prediction
+            y_score[cnt:cnt+data.shape[0]] = output.cpu()
+            y_true[cnt:cnt+data.shape[0]] = label
+            cnt += data.shape[0]
+        logging.info('Prediction Ended on test dataset')
+
+        del data
+        del output
+
+        y_true = y_true.numpy()
+        y_score = y_score.numpy()
+        y_pred = y_pred.numpy()
+
+    return y_true, y_score, y_pred
