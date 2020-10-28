@@ -133,7 +133,7 @@ class ECEmbedDataset(Dataset):
         x = self.data_X[idx]
         x = self.convert2onehot_seq(x)
         # x = x.reshape((1,) + x.shape)
-        x = x.reshape(1, -1)
+        # x = x.reshape(1, -1)
 
         if self.pred:
             return x
