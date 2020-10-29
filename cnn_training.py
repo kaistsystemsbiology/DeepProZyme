@@ -19,7 +19,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECDataset, ECEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss
 from deepec.train import train, evalulate
-from deepec.model import DeepECv2_3, DeepECv2_4, DeepECv2_5, DeepEC_emb
+from deepec.model import DeepECv2_3, DeepECv2_4, DeepECv2_5, DeepEC_emb, TransformerModel
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -149,19 +149,25 @@ if __name__ == '__main__':
     logging.info(f'Number of ECs in validation data: {len_val_ecs}')
     logging.info(f'Number of ECs in test data: {len_test_ecs}')
 
-    trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
-    valDataset = ECDataset(val_seqs, val_ecs, explainECs)
-    testDataset = ECDataset(test_seqs, test_ecs, explainECs)
-    # trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
-    # valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
-    # testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
+    # trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
+    # valDataset = ECDataset(val_seqs, val_ecs, explainECs)
+    # testDataset = ECDataset(test_seqs, test_ecs, explainECs)
+    trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
+    valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
+    testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-
-    model = DeepECv2_3(out_features=explainECs).to(device)
+    ntokens = 21
+    emsize = 64 # embedding dimension
+    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 4 # the number of heads in the multiheadattention models
+    dropout = 0.2 # the dropout value
+    model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    # model = DeepECv2_3(out_features=explainECs).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[2, 3, 2, 1]).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[3, 4, 3, 1]).to(device)

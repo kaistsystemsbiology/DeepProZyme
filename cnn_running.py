@@ -14,9 +14,9 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_EC_actual_Fasta, \
                                 getExplainedEC_short, \
                                 convertECtoLevel3
-from deepec.data_loader import ECDataset
+from deepec.data_loader import ECDataset, ECEmbedDataset
 from deepec.utils import argument_parser
-from deepec.model import DeepECv2_3 as DeepECv2
+from deepec.model import DeepECv2_3, TransformerModel
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -50,14 +50,21 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
     explainECs = ckpt['explainECs']
 
-    model = DeepECv2(out_features=explainECs)
-    model = model.to(device)
+    ntokens = 21
+    emsize = 64 # embedding dimension
+    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 4 # the number of heads in the multiheadattention models
+    dropout = 0.2 # the dropout value
+    model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    # model = DeepECv2(out_features=explainECs)
+    # model = model.to(device)
     model.load_state_dict(ckpt['model'])
 
     input_seqs, input_ids = read_EC_actual_Fasta(input_data_file)
     pseudo_labels = np.zeros((len(input_seqs)))
 
-    proteinDataset = ECDataset(input_seqs, pseudo_labels, explainECs, pred=True)
+    proteinDataset = ECEmbedDataset(input_seqs, pseudo_labels, explainECs, pred=True)
     proteinDataloader = DataLoader(proteinDataset, batch_size=batch_size, shuffle=False)
 
     model.eval() # training session with train dataset
