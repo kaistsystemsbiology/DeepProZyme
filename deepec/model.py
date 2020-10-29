@@ -17,9 +17,9 @@ class CNN0(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.3)
            
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21))
-        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21))
-        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21))
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,20))
+        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,20))
+        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,20))
 
         self.batchnorm1 = nn.BatchNorm2d(num_features=128)
         self.batchnorm2 = nn.BatchNorm2d(num_features=128)
@@ -111,9 +111,9 @@ class CNN2(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.3)
            
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21))
-        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21))
-        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21))
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,20))
+        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,20))
+        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,20))
 
         self.conv1_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(16,1))
         self.conv2_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(12,1))
@@ -141,7 +141,7 @@ class DeepECv2_2(nn.Module):
     def __init__(self, out_features):
         super(DeepECv2_2, self).__init__()
         self.explainECs = out_features
-        self.embedding = nn.Embedding(21, 10) # 20 AA + X + blank
+        self.embedding = nn.Embedding(20, 10) # 20 AA + X + blank
         self.cnn0 = CNN1()
         self.fc1 = nn.Linear(in_features=128*3, out_features=512)
         self.bn1 = nn.BatchNorm1d(num_features=512)
@@ -165,7 +165,7 @@ class DeepECv2_2(nn.Module):
         x = self.cnn0(x)
         x = x.view(-1, 128*3)
         x = self.relu(self.bn1(self.fc1(x)))
-        x = self.out_act(self.bn2(self.fc2(x)))
+        x = self.bn2(self.fc2(x))
         return x
 
 
@@ -174,7 +174,6 @@ class DeepECv2_3(nn.Module):
     def __init__(self, out_features):
         super(DeepECv2_3, self).__init__()
         self.explainECs = out_features
-        # self.embedding = nn.Embedding(1000, 21) # 20 AA + X + blank
         self.cnn0 = CNN0()
         self.fc1 = nn.Linear(in_features=128*3, out_features=512)
         self.bn1 = nn.BatchNorm1d(num_features=512)
@@ -198,7 +197,6 @@ class DeepECv2_3(nn.Module):
         x = x.view(-1, 128*3)
         x = self.relu(self.bn1(self.fc1(x)))
         x = self.bn2(self.fc2(x))
-        # x = self.out_act(x)
         return x
 
 
@@ -209,9 +207,9 @@ class DeepECv2_4(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.3)
            
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21))
-        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21))
-        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21))
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,20))
+        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,20))
+        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,20))
 
         self.batchnorm1 = nn.BatchNorm2d(num_features=128)
         self.batchnorm2 = nn.BatchNorm2d(num_features=128)
@@ -257,7 +255,7 @@ class DeepECv2_4(nn.Module):
         x = self.pool(x)
 
         x = x.view(-1, 128*3)
-        return self.out_act(self.fc1(x))
+        return self.fc1(x)
 
 
 class DeepECv2_5(nn.Module):
@@ -267,7 +265,7 @@ class DeepECv2_5(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.3)
 
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21))
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,20))
         self.batchnorm1 = nn.BatchNorm2d(num_features=128)
            
         self.conv2_1 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(4,1))
@@ -325,7 +323,7 @@ class DeepECv2_5(nn.Module):
         x = x.view(-1, 128*3)
         x = self.relu(self.bn1(self.fc1(x)))
         x = self.bn2(self.fc2(x))
-        return self.out_act(x)
+        return x
 
 
         
@@ -366,7 +364,7 @@ class DeepEC_emb(nn.Module):
         self.explainECs = explainECs
         self.in_planes = 64 
 
-        self.embedding = nn.Embedding(21, 10) # 20 AA + X + blank
+        self.embedding = nn.Embedding(20, 10) # 20 AA + X + blank
         self.conv = nn.Conv2d(1, 64, kernel_size=(3, 10),
                               stride=1, padding=(1, 0), bias=False)
         self.bn = nn.BatchNorm2d(64)
@@ -413,7 +411,6 @@ class DeepEC_emb(nn.Module):
 
 
 class PositionalEncoding(nn.Module):
-
     def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -437,9 +434,9 @@ class CNN(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.3)
            
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,21))
-        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,21))
-        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,21))
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,20))
+        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,20))
+        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,20))
 
         self.batchnorm1 = nn.BatchNorm2d(num_features=128)
         self.batchnorm2 = nn.BatchNorm2d(num_features=128)
@@ -483,7 +480,6 @@ class CNN(nn.Module):
 
 
 class TransformerModel(nn.Module):
-
     def __init__(self, ntoken, ninp, nhead, nhid, nlayers, dropout=0.5, explainProts=[]):
         super(TransformerModel, self).__init__()
         from torch.nn import TransformerEncoder, TransformerEncoderLayer
