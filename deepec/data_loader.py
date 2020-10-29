@@ -24,8 +24,7 @@ class ECDataset(Dataset):
                     'F', 'G', 'H', 'I', 
                     'K', 'L', 'M', 'N', 
                     'P', 'Q', 'R', 'S',
-                    'T', 'V', 'W', 'X', 
-                    'Y']
+                    'T', 'V', 'W', 'Y', ]
         map = {}
         for i, char in enumerate(aa_vocab):
             baseArray = np.zeros(len(aa_vocab))
@@ -94,8 +93,7 @@ class ECEmbedDataset(Dataset):
                     'F', 'G', 'H', 'I', 
                     'K', 'L', 'M', 'N', 
                     'P', 'Q', 'R', 'S',
-                    'T', 'V', 'W', 'X', 
-                    'Y']
+                    'T', 'V', 'W', 'Y', ]
         map = {}
         for i, char in enumerate(aa_vocab):
             baseArray = i # use this line for embedding instead of the above three
@@ -132,8 +130,6 @@ class ECEmbedDataset(Dataset):
     def __getitem__(self, idx):
         x = self.data_X[idx]
         x = self.convert2onehot_seq(x)
-        # x = x.reshape((1,) + x.shape)
-        # x = x.reshape(1, -1)
 
         if self.pred:
             return x
@@ -165,8 +161,7 @@ class EnzymeEmbedDataset(Dataset):
                     'F', 'G', 'H', 'I', 
                     'K', 'L', 'M', 'N', 
                     'P', 'Q', 'R', 'S',
-                    'T', 'V', 'W', 'X', 
-                    'Y']
+                    'T', 'V', 'W', 'Y', ]
         map = {}
         for i, char in enumerate(aa_vocab):
             baseArray = i # use this line for embedding instead of the above three
@@ -219,8 +214,7 @@ class EnzymeDataset(Dataset):
                     'F', 'G', 'H', 'I', 
                     'K', 'L', 'M', 'N', 
                     'P', 'Q', 'R', 'S',
-                    'T', 'V', 'W', 'X', 
-                    'Y']
+                    'T', 'V', 'W', 'X', ]
         map = {}
         for i, char in enumerate(aa_vocab):
             baseArray = np.zeros(len(aa_vocab))
