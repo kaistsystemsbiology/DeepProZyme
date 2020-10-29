@@ -45,12 +45,6 @@ def argument_parser(version=None):
                         default='checkpoint.pt', help='Checkpoint file')
     parser.add_argument('-i', '--seq_file', required=False, 
                         default='./Dataset/ec_seq.fa', help='Sequence data')
-    parser.add_argument('-enz', '--enzyme_data', required=False, 
-                        default='./Dataset/processedEnzSeq.fasta', help='Enzyme data')
-    parser.add_argument('-nonenz', '--nonenzyme_data', required=False, 
-                        default='./Dataset/processedNonenzSeq.fasta', help='Nonenzyme data')
-    parser.add_argument('-basal', '--basal_net', required=False, 
-                        default='CNN0_3', help='Select basal net')
     parser.add_argument('-third', '--third_level', required=False, type=boolean_string,
                         default=False, help='Predict upto third EC level')
     parser.add_argument('-resume', '--training_resume', required=False, type=boolean_string,
