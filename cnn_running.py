@@ -14,14 +14,9 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_EC_actual_Fasta, \
                                 getExplainedEC_short, \
                                 convertECtoLevel3
-
-
-from deepec.data_loader import ECDataset
-
-from deepec.utils import argument_parser, EarlyStopping, \
-                         draw, save_losses, train_model, evalulate_model
-    
-from deepec.old_models import DeepEC
+from deepec.data_loader import ECDataset, ECEmbedDataset
+from deepec.utils import argument_parser
+from deepec.model import DeepECv2_3, TransformerModel
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -35,7 +30,7 @@ if __name__ == '__main__':
 
     output_dir = options.output_dir
     checkpt_file = options.checkpoint
-    input_data_file = options.enzyme_data
+    input_data_file = options.seq_file
 
     device = options.gpu
     num_cpu = options.cpu_num
@@ -55,14 +50,21 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
     explainECs = ckpt['explainECs']
 
-    model = DeepEC(out_features=explainECs, basal_net='CNN0')
-    model = model.to(device)
+    ntokens = 21
+    emsize = 64 # embedding dimension
+    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 4 # the number of heads in the multiheadattention models
+    dropout = 0.2 # the dropout value
+    model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    # model = DeepECv2(out_features=explainECs)
+    # model = model.to(device)
     model.load_state_dict(ckpt['model'])
 
     input_seqs, input_ids = read_EC_actual_Fasta(input_data_file)
     pseudo_labels = np.zeros((len(input_seqs)))
 
-    proteinDataset = ECDataset(input_seqs, pseudo_labels, explainECs, pred=True)
+    proteinDataset = ECEmbedDataset(input_seqs, pseudo_labels, explainECs, pred=True)
     proteinDataloader = DataLoader(proteinDataset, batch_size=batch_size, shuffle=False)
 
     model.eval() # training session with train dataset
@@ -74,7 +76,7 @@ if __name__ == '__main__':
             data = data.type(torch.FloatTensor)
             data = data.to(device)
             output = model(data)
-            prediction = output > 0.5
+            prediction = torch.sigmoid(output) > 0.5
             prediction = prediction.float()
             y_pred[cnt:cnt+data.shape[0]] = prediction.cpu()
             cnt += data.shape[0]
@@ -83,5 +85,11 @@ if __name__ == '__main__':
     with open(f'{output_dir}/prediction_result.txt', 'w') as fp:
         fp.write('sequence_ID\tprediction\n')
         for i, ith_pred in enumerate(y_pred):
-            for j in ith_pred.nonzero():
-                fp.write(f'{input_ids[i]}\t{explainECs[j]}\n')
+            if len(ith_pred.nonzero()) == 0:
+                fp.write(f'{input_ids[i]}\tNone\n')
+                continue
+            pred_ecs = [explainECs[j] for j in ith_pred.nonzero()]
+            pred_ecs = ';'.join(pred_ecs)
+            fp.write(f'{input_ids[i]}\t{pred_ecs}\n')
+            # for j in ith_pred.nonzero():
+            #     fp.write(f'{input_ids[i]}\t{explainECs[j]}\n')

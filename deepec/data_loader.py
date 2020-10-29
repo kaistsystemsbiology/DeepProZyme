@@ -74,54 +74,7 @@ class ECDataset(Dataset):
         return x, y
 
 
-# create a data loading class for the use of pytorch
-# I put the one hot encoding in here
-class EnzymeDataset(Dataset):
-    def __init__(self, data_X, data_Y):
-        self.getAAmap()
-        self.data_X = data_X
-        self.data_Y = data_Y
-        
-    
-    def __len__(self):
-        return len(self.data_X)
-    
-    
-    def getAAmap(self):
-        aa_vocab = ['A', 'C', 'D', 'E', 
-                    'F', 'G', 'H', 'I', 
-                    'K', 'L', 'M', 'N', 
-                    'P', 'Q', 'R', 'S',
-                    'T', 'V', 'W', 'X', 
-                    'Y', '_']
-        map = {}
-        for i, char in enumerate(aa_vocab):
-            baseArray = np.zeros(len(aa_vocab)-1)
-            if char != '_':
-                baseArray[i] = 1
-            map[char] = baseArray
-        self.map = map
-        return
-
-        
-    def convert2onehot(self, single_seq):
-        single_onehot = []
-        for x in single_seq:
-            single_onehot.append(self.map[x])
-        return np.asarray(single_onehot)
-    
-    
-    def __getitem__(self, idx):
-        x = self.data_X[idx]
-        x = self.convert2onehot(x)
-        y = self.data_Y[idx]
-        
-        x = x.reshape((1,) + x.shape)
-        y = y.reshape(-1)
-        return x, y
-
-
-class ECDataset_sparse(Dataset):
+class ECEmbedDataset(Dataset):
     def __init__(self, data_X, data_Y, explainECs, pred=False):
         self.pred = pred
         self.data_X = data_X
@@ -145,8 +98,7 @@ class ECDataset_sparse(Dataset):
                     'Y']
         map = {}
         for i, char in enumerate(aa_vocab):
-            baseArray = np.zeros(len(aa_vocab))
-            baseArray[i] = 1
+            baseArray = i # use this line for embedding instead of the above three
             map[char] = baseArray
         return map
     
@@ -163,7 +115,7 @@ class ECDataset_sparse(Dataset):
 
 
     def convert2onehot_seq(self, single_seq, max_seq=1000):
-        single_onehot = np.zeros((max_seq, len(self.map_AA)))
+        single_onehot = np.zeros((max_seq), dtype=np.int64)
         for i, x in enumerate(single_seq):
             single_onehot[i] = np.asarray(self.map_AA[x])
         return single_onehot
@@ -180,12 +132,124 @@ class ECDataset_sparse(Dataset):
     def __getitem__(self, idx):
         x = self.data_X[idx]
         x = self.convert2onehot_seq(x)
-        x = x.reshape((1,) + x.shape)
+        # x = x.reshape((1,) + x.shape)
+        # x = x.reshape(1, -1)
 
         if self.pred:
             return x
 
         y = self.data_Y[idx]
         y = self.convert2onehot_EC(y)
+        y = y.reshape(-1)
+        return x, y
+
+
+# create a data loading class for the use of pytorch
+# I put the one hot encoding in here
+class EnzymeEmbedDataset(Dataset):
+    def __init__(self, data_X, data_Y, pred=False):
+        self.pred = pred
+        self.data_X = data_X
+        self.map_AA = self.getAAmap()
+
+        if not pred:
+            self.data_Y = data_Y
+        
+    
+    def __len__(self):
+        return len(self.data_X)
+    
+    
+    def getAAmap(self):
+        aa_vocab = ['A', 'C', 'D', 'E', 
+                    'F', 'G', 'H', 'I', 
+                    'K', 'L', 'M', 'N', 
+                    'P', 'Q', 'R', 'S',
+                    'T', 'V', 'W', 'X', 
+                    'Y']
+        map = {}
+        for i, char in enumerate(aa_vocab):
+            baseArray = i # use this line for embedding instead of the above three
+            map[char] = baseArray
+        return map
+
+        
+    def convert2onehot_seq(self, single_seq, max_seq=1000):
+        single_onehot = np.zeros((max_seq), dtype=np.int64)
+        for i, x in enumerate(single_seq):
+            single_onehot[i] = np.asarray(self.map_AA[x])
+        return single_onehot
+
+
+    def convert2int(self, label):
+        for y in label:
+            return np.asarray(y, dtype=np.float)
+    
+    
+    def __getitem__(self, idx):
+        x = self.data_X[idx]
+        x = self.convert2onehot_seq(x)
+        x = x.reshape(1, -1)
+
+        if self.pred:
+            return x
+        y = self.data_Y[idx]
+        y = self.convert2int(y)
+        
+        y = y.reshape(-1)
+        return x, y
+
+
+class EnzymeDataset(Dataset):
+    def __init__(self, data_X, data_Y, pred=False):
+        self.pred = pred
+        self.data_X = data_X
+        self.map_AA = self.getAAmap()
+
+        if not pred:
+            self.data_Y = data_Y
+        
+    
+    def __len__(self):
+        return len(self.data_X)
+    
+    
+    def getAAmap(self):
+        aa_vocab = ['A', 'C', 'D', 'E', 
+                    'F', 'G', 'H', 'I', 
+                    'K', 'L', 'M', 'N', 
+                    'P', 'Q', 'R', 'S',
+                    'T', 'V', 'W', 'X', 
+                    'Y']
+        map = {}
+        for i, char in enumerate(aa_vocab):
+            baseArray = np.zeros(len(aa_vocab))
+            baseArray[i] = 1 # use this line for embedding instead of the above three
+            map[char] = baseArray
+        return map
+
+        
+    def convert2onehot_seq(self, single_seq, max_seq=1000):
+        single_onehot = np.zeros((max_seq), dtype=np.int64)
+        for i, x in enumerate(single_seq):
+            single_onehot[i] = np.asarray(self.map_AA[x])
+        return single_onehot
+
+
+    def convert2int(self, label):
+        for y in label:
+            return np.asarray(y, dtype=np.float)
+    
+    
+    def __getitem__(self, idx):
+        x = self.data_X[idx]
+        x = self.convert2onehot_seq(x)
+        x = x.reshape((1,) + x.shape)
+
+        if self.pred:
+            return x
+        y = self.data_Y[idx]
+        y = self.convert2int(y)
+
         y = y.reshape(-1)
         return x, y

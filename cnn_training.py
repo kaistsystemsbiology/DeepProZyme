@@ -4,6 +4,8 @@ import logging
 # import basic python packages
 import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 # import torch packages
 import torch
@@ -14,18 +16,41 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_EC_Fasta, \
                                 getExplainedEC_short, \
                                 convertECtoLevel3
-
-
-from deepec.data_loader import ECDataset
-
-from deepec.utils import argument_parser, EarlyStopping, \
-                         draw, save_losses, train_model, evalulate_model
-    
-from deepec.old_models import DeepEC
+from deepec.data_loader import ECDataset, ECEmbedDataset
+from deepec.utils import argument_parser, draw, save_losses, FocalLoss
+from deepec.train import train, evalulate
+from deepec.model import DeepECv2_3, DeepECv2_4, DeepECv2_5, DeepEC_emb, TransformerModel
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
+
+
+class DeepECConfig():
+    def __init__(self,
+                 model = None,
+                 optimizer = None,
+                 criterion = None,
+                 scheduler = None,
+                 n_epochs = 50,
+                 device = 'cpu',
+                 patience = 5,
+                 save_name = './deepec.log',
+                 train_source = None,
+                 val_source = None, 
+                 test_source = None):
+        super().__init__()
+        self.model = model
+        self.optimizer = optimizer
+        self.criterion = criterion
+        self.scheduler = scheduler
+        self.n_epochs = num_epochs
+        self.device = device
+        self.patience = patience
+        self.save_name = save_name
+        self.train_source = trainDataloader
+        self.val_source = validDataloader
+        self.test_source = testDataloader
 
 
 if __name__ == '__main__':
@@ -65,8 +90,11 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
+    gamma = 3
+
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
+                  \tGamma: {gamma}\
                   \tBatch size: {batch_size}\
                   \tLearning rate: {learning_rate}\
                   \tPredict upto 3 level: {third_level}')
@@ -82,23 +110,16 @@ if __name__ == '__main__':
     train_ecs, val_ecs = train_test_split(train_ecs, test_size=1/9, random_state=seed_num)
     # train_ids, val_ids = train_test_split(input_ids, test_size=1/9, random_state=seed_num)
 
-    len_train_seq = len(train_seqs)
-    len_valid_seq = len(val_seqs)
-    len_test_seq = len(test_seqs)
 
-    logging.info(f'Number of sequences used- Train: {len_train_seq}')
-    logging.info(f'Number of sequences used- Validation: {len_valid_seq}')
-    logging.info(f'Number of sequences used- Test: {len_test_seq}')
-
+    logging.info(f'Number of sequences used- Train: {len(train_seqs)}')
+    logging.info(f'Number of sequences used- Validation: {len(val_seqs)}')
+    logging.info(f'Number of sequences used- Test: {len(test_seqs)}')
 
     explainECs = []
-    for ec_data in [train_ecs, val_ecs, test_ecs]:
-        for ecs in ec_data:
-            for each_ec in ecs:
-                if each_ec not in explainECs:
-                    explainECs.append(each_ec)
+    for ecs in input_ecs:
+        explainECs += ecs
+    explainECs = list(set(explainECs))
     explainECs.sort()
-
 
     if third_level:
         logging.info('Predict EC number upto third level')
@@ -109,36 +130,87 @@ if __name__ == '__main__':
     else:
         logging.info('Predict EC number upto fourth level')
 
-    trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
-    valDataset = ECDataset(val_seqs, val_ecs, explainECs)
-    testDataset = ECDataset(test_seqs, test_ecs, explainECs)
+    train_ec_types = []
+    for ecs in train_ecs:
+        train_ec_types += ecs
+    len_train_ecs = len(set(train_ec_types))
+
+    val_ec_types = []
+    for ecs in val_ecs:
+        val_ec_types += ecs
+    len_val_ecs = len(set(val_ec_types))
+    
+    test_ec_types = []
+    for ecs in test_ecs:
+        test_ec_types += ecs
+    len_test_ecs = len(set(test_ec_types))
+
+    logging.info(f'Number of ECs in train data: {len_train_ecs}')
+    logging.info(f'Number of ECs in validation data: {len_val_ecs}')
+    logging.info(f'Number of ECs in test data: {len_test_ecs}')
+
+    # trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
+    # valDataset = ECDataset(val_seqs, val_ecs, explainECs)
+    # testDataset = ECDataset(test_seqs, test_ecs, explainECs)
+    trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
+    valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
+    testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-
-    model = DeepEC(out_features=explainECs, basal_net='CNN0')
+    ntokens = 21
+    emsize = 64 # embedding dimension
+    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 4 # the number of heads in the multiheadattention models
+    dropout = 0.2 # the dropout value
+    model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    # model = DeepECv2_3(out_features=explainECs).to(device)
+    # model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
+    # model = DeepEC_emb(explainECs=explainECs, num_blocks=[2, 3, 2, 1]).to(device)
+    # model = DeepEC_emb(explainECs=explainECs, num_blocks=[3, 4, 3, 1]).to(device)
+    # model = nn.DataParallel(model, device_ids=[0, 1])
     logging.info(f'Model Architecture: \n{model}')
-    model = model.to(device)
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
 
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    criterion = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, )
+    criterion = FocalLoss(gamma=gamma)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
+    logging.info(f'Learning rate scheduling: step size: 1\tgamma: 0.95')
 
-    model, avg_train_losses, avg_valid_losses = train_model(
-        model, optimizer, criterion, device,
-        batch_size, patience, num_epochs, 
-        trainDataloader, validDataloader,
-        f'{output_dir}/{checkpt_file}'
-        )
+    config = DeepECConfig()
+    config.model = model 
+    config.optimizer = optimizer
+    config.criterion = criterion
+    config.scheduler = scheduler
+    config.n_epochs = num_epochs
+    config.device = device
+    config.save_name = f'{output_dir}/{checkpt_file}'
+    config.patience = patience
+    config.train_source = trainDataloader
+    config.val_source = validDataloader
+    config.test_source = testDataloader
+    config.explainProts = explainECs
 
-    save_losses(avg_train_losses, avg_valid_losses, output_dir=output_dir)
-    draw(avg_train_losses, avg_valid_losses, output_dir=output_dir)
+
+    avg_train_losses, avg_val_losses = train(config)
+    save_losses(avg_train_losses, avg_val_losses, output_dir=output_dir)
+    draw(avg_train_losses, avg_val_losses, output_dir=output_dir)
 
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    fpr, tpr, threshold = evalulate_model(model, testDataloader, 
-                                            len(testDataset), explainECs, device)
+    y_true, y_score, y_pred = evalulate(config)
+    precision = precision_score(y_true, y_pred, average='macro')
+    recall = recall_score(y_true, y_pred, average='macro')
+    f1 = f1_score(y_true, y_pred, average='macro')
+    logging.info(f'(Macro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    
+    precision = precision_score(y_true, y_pred, average='micro')
+    recall = recall_score(y_true, y_pred, average='micro')
+    f1 = f1_score(y_true, y_pred, average='micro')
+    logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    

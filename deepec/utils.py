@@ -14,6 +14,7 @@ from Bio import SeqIO
 # import torch packages
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 # import scikit learn packages
 from sklearn.metrics import roc_curve, auc, roc_auc_score
@@ -40,9 +41,9 @@ def argument_parser(version=None):
                         default=1e-3, help='Learning rate')
     parser.add_argument('-p', '--patience', required=False, type=int,
                         default=5, help='Patience limit for early stopping')
-    parser.add_argument('-c', '--checkpoint', required=False, 
+    parser.add_argument('-ckpt', '--checkpoint', required=False, 
                         default='checkpoint.pt', help='Checkpoint file')
-    parser.add_argument('-t', '--seq_file', required=False, 
+    parser.add_argument('-i', '--seq_file', required=False, 
                         default='./Dataset/ec_seq.fa', help='Sequence data')
     parser.add_argument('-enz', '--enzyme_data', required=False, 
                         default='./Dataset/processedEnzSeq.fasta', help='Enzyme data')
@@ -55,57 +56,9 @@ def argument_parser(version=None):
     parser.add_argument('-resume', '--training_resume', required=False, type=boolean_string,
                         default=False, help='Resume training based on the previous checkpoint')
     parser.add_argument('-cpu', '--cpu_num', required=False, type=int,
-                        default=1, help='Number of cpus to use')
-
-    parser.add_argument('-c1', '--checkpoint_CNN1', required=False, 
-                        default='checkpoint.pt', help='Checkpoint file for CNN1')
-    parser.add_argument('-c2', '--checkpoint_CNN2', required=False, 
-                        default='checkpoint.pt', help='Checkpoint file for CNN2')
-    parser.add_argument('-c3', '--checkpoint_CNN3', required=False, 
-                        default='checkpoint.pt', help='Checkpoint file for CNN3')
-    
+                        default=1, help='Number of cpus to use')    
     return parser
 
-
-# early stopping with validation dataset 
-class EarlyStopping:
-    def __init__(self, save_name='checkpoint.pt', patience=7, verbose=False, delta=0):
-        self.save_name = save_name
-        self.patience = patience
-        self.verbose = verbose
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
-        self.val_loss_min = np.Inf
-        self.delta = delta
-
-    def __call__(self, val_loss, model, optimizer, epoch):
-        score = -val_loss
-
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, epoch)
-        elif score < self.best_score - self.delta:
-            self.counter += 1
-            logging.info(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, epoch)
-            self.counter = 0
-
-    def save_checkpoint(self, val_loss, model, optimizer, epoch):
-        if self.verbose:
-            logging.info(f'Validation loss decreased ({self.val_loss_min:.9f} --> {val_loss:.9f}).  Saving model ...')
-        
-        ckpt = {'model':model.state_dict(),
-                'optimizer':optimizer.state_dict(),
-                'best_acc':self.best_score,
-                'epoch':epoch,
-                'explainECs':model.explainECs}
-        torch.save(ckpt, self.save_name)
-        self.val_loss_min = val_loss
 
 
 # plot the accuracy and loss value of each model.
@@ -113,7 +66,11 @@ class EarlyStopping:
 def draw(avg_train_losses, avg_valid_losses, output_dir, file_name='CNN_loss_fig.png'):
     fig = plt.figure(figsize=(9,6))
 
-    min_position = avg_valid_losses.index(min(avg_valid_losses)) + 1
+    avg_train_losses = np.array(avg_train_losses)
+    avg_train_losses = avg_train_losses[avg_train_losses.nonzero()]
+    avg_valid_losses = np.array(avg_valid_losses)
+    avg_valid_losses = avg_valid_losses[avg_valid_losses.nonzero()]
+    min_position = avg_valid_losses.argmin()+1
 
     plt.plot(range(1, len(avg_train_losses)+1), avg_train_losses, label='Training loss')
     plt.plot(range(1, len(avg_valid_losses)+1), avg_valid_losses, label='Validation loss')
@@ -137,63 +94,27 @@ def save_losses(avg_train_losses, avg_valid_losses, output_dir, file_name='losse
         cnt = 0
         for train_loss, valid_loss in zip(avg_train_losses, avg_valid_losses):
             cnt += 1
-            fp.write(f'{cnt}\t{train_loss:9f}\t{valid_loss:9f}\n')
+            fp.write(f'{cnt}\t{train_loss:0.12f}\t{valid_loss:0.12f}\n')
     return
 
 
-def train_model(model, optimizer, criterion, device,
-               batch_size, patience, n_epochs, 
-               train_loader, valid_loader, save_name='checkpoint.pt'):
-    early_stopping = EarlyStopping(
-                                save_name=save_name, 
-                                patience=patience, 
-                                verbose=True)
-
-    avg_train_losses = torch.zeros(n_epochs).to(device)
-    avg_valid_losses = torch.zeros(n_epochs).to(device)
-    
-    logging.info('Training start')
-    for epoch in range(n_epochs):
-        train_losses = torch.zeros(len(train_loader)).to(device)
-        valid_losses = torch.zeros(len(train_loader)).to(device)
-        model.train() # training session with train dataset
-        for batch, (data, label) in enumerate(train_loader):
-            data = data.type(torch.FloatTensor)
-            label = label.type(torch.FloatTensor)
-            data = data.to(device)
-            label = label.to(device)
-            optimizer.zero_grad()
-            output = model(data)
-            loss = criterion(output, label)
-            loss.backward()
-            optimizer.step()
-
-            train_losses[batch] = loss.item()
-        avg_train_losses[epoch] = torch.mean(train_losses)
-
-        model.eval() # validation session with validation dataset
-        with torch.no_grad():
-            for batch, (data, label) in enumerate(valid_loader):
-                data = data.type(torch.FloatTensor)
-                label = label.type(torch.FloatTensor)
-                data = data.to(device)
-                label = label.to(device)
-                output = model(data)
-                loss = criterion(output, label)
-
-                valid_losses[batch] = loss.item()
-            
-            valid_loss = torch.mean(valid_losses)
-            avg_valid_losses[epoch] = valid_loss
+class FocalLoss(nn.Module):
+    def __init__(self, gamma=0, alpha=None):
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+        if alpha==None:
+            self.alpha=1
+        else:
+            self.alpha = torch.Tensor(alpha).view(-1, 1)
         
-        # decide whether to stop or not based on validation loss
-        early_stopping(valid_loss, model, optimizer, epoch) 
-        if early_stopping.early_stop:
-            logging.info('Early stopping')
-            break
-            
-    logging.info('Training end')
-    return model, avg_train_losses.tolist(), avg_valid_losses.tolist()
+    def forward(self, pred, label):
+        # pt = label*pred + (1-label)*(1-pred)
+        # loss = -(1-pt).pow(self.gamma) * (self.alpha*torch.log(pt))
+        # return loss.mean()
+        BCE_loss = F.binary_cross_entropy_with_logits(pred, label, reduction='none')
+        pt = torch.exp(-BCE_loss) # prevents nans when probability 0
+        focal_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+        return focal_loss.mean()
 
 
 def evalulate_model(model, test_loader, num_data, explainECs, device):
@@ -205,31 +126,26 @@ def evalulate_model(model, test_loader, num_data, explainECs, device):
         logging.info('Prediction starts on test dataset')
         cnt = 0
         for batch, (data, label) in enumerate(test_loader):
-            data = data.type(torch.FloatTensor)
+            data = data.type(torch.FloatTensor).to(device)
             label = label.type(torch.FloatTensor)
-            data = data.to(device)
-            label = label.to(device)
             output = model(data)
             prediction = output > 0.5
-            prediction = prediction.float()
+            prediction = prediction.float().cpu()
 
-            y_pred[cnt:cnt+data.shape[0]] = prediction.cpu()
+            y_pred[cnt:cnt+data.shape[0]] = prediction
             y_score[cnt:cnt+data.shape[0]] = output.cpu()
-            y_true[cnt:cnt+data.shape[0]] = label.cpu()
+            y_true[cnt:cnt+data.shape[0]] = label
             cnt += data.shape[0]
         logging.info('Prediction Ended on test dataset')
 
-        y_true = y_true.numpy()
-        y_pred = y_pred.numpy()
-        precision = precision_score(y_true, y_pred, average='macro')
-        recall = recall_score(y_true, y_pred, average='macro')
-        f1 = f1_score(y_true, y_pred, average='macro')
+        del data
+        del output
 
-    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
-    fpr, tpr, threshold = roc_curve(y_true, y_score)
-    roc_auc = auc(fpr, tpr)
-    logging.info(f'AUC: {roc_auc: 0.6f}')
-    return fpr, tpr, threshold
+        y_true = y_true.numpy()
+        y_score = y_score.numpy()
+        y_pred = y_pred.numpy()
+
+    return y_true, y_score, y_pred
 
 
 
@@ -258,91 +174,6 @@ def calculateTestAccuracy(model, testDataloader, device, cutoff=0.5):
         test_acc /= n
         logging.info('Test accuracy: %0.6f'%(test_acc.item()))
     return test_acc.item()
-
-
-
-def train_model_CAM(model, optimizer, criterion, 
-               device, batch_size, patience, n_epochs, 
-               train_loader, valid_loader, save_name='checkpoint.pt'):
-    early_stopping = EarlyStopping(
-                                save_name=save_name, 
-                                patience=patience, 
-                                verbose=True)
-
-    avg_train_losses = torch.zeros(n_epochs).to(device)
-    avg_valid_losses = torch.zeros(n_epochs).to(device)
-    
-    logging.info('Training start')
-    model.train() # training session with train dataset
-    for epoch in range(n_epochs):
-        train_losses = torch.zeros(len(train_loader)).to(device)
-        valid_losses = torch.zeros(len(train_loader)).to(device)
-        for batch, (data, label) in enumerate(train_loader):
-            data = data.type(torch.FloatTensor)
-            label = label.type(torch.FloatTensor)
-            data = data.to(device)
-            label = label.to(device)
-            optimizer.zero_grad()
-            output, _ = model(data)
-            loss = criterion(output, label)
-            loss.backward()
-            optimizer.step()
-
-            train_losses[batch] = loss.item()
-        avg_train_losses[epoch] = torch.mean(train_losses)
-
-        model.eval() # validation session with validation dataset
-        with torch.no_grad():
-            for batch, (data, label) in enumerate(valid_loader):
-                data = data.type(torch.FloatTensor)
-                label = label.type(torch.FloatTensor)
-                data = data.to(device)
-                label = label.to(device)
-                output, _ = model(data)
-                loss = criterion(output, label)
-
-                valid_losses[batch] = loss.item()
-            
-            valid_loss = torch.mean(valid_losses)
-            avg_valid_losses[epoch] = valid_loss
-        
-        # decide whether to stop or not based on validation loss
-        early_stopping(valid_loss, model, optimizer, epoch) 
-        if early_stopping.early_stop:
-            logging.info('Early stopping')
-            break
-            
-    logging.info('Training end')
-    return model, avg_train_losses.tolist(), avg_valid_losses.tolist()
-
-
-def evalulate_model_CAM(model, test_loader, num_data, explainECs, device):
-    model.eval() # training session with train dataset
-    with torch.no_grad():
-        y_pred = torch.zeros([num_data, len(explainECs)])
-        y_true = torch.zeros([num_data, len(explainECs)])
-        logging.info('Prediction starts on test dataset')
-        cnt = 0
-        for batch, (data, label) in enumerate(test_loader):
-            data = data.type(torch.FloatTensor).to(device)
-            label = label.type(torch.FloatTensor).to(device)
-            output, _ = model(data)
-            prediction = output > 0.5
-            prediction = prediction.float()
-
-            y_pred[cnt:cnt+data.shape[0]] = prediction.cpu()
-            y_true[cnt:cnt+data.shape[0]] = label.cpu()
-            cnt += data.shape[0]
-        logging.info('Prediction Ended on test dataset')
-
-        y_true = y_true.numpy()
-        y_pred = y_pred.numpy()
-        precision = precision_score(y_true, y_pred, average='macro')
-        recall = recall_score(y_true, y_pred, average='macro')
-        f1 = f1_score(y_true, y_pred, average='macro')
-
-    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
-    return y_true, y_pred
 
 
 def evalulate_deepEC(model0, model1, model2, test_loader, num_data, device):
@@ -425,3 +256,36 @@ def _getCommonECs(ec3_pred, ec4_pred, ec2ec_map, device):
         common_EC = ec4_activemap * ec4_pred[i]
         common_pred[i] = common_EC
     return common_pred
+
+
+
+def evalulate_model_emb(model, test_loader, num_data, explainECs, device):
+    model.eval() # training session with train dataset
+    with torch.no_grad():
+        y_pred = torch.zeros([num_data, len(explainECs)])
+        y_score = torch.zeros([num_data, len(explainECs)])
+        y_true = torch.zeros([num_data, len(explainECs)])
+        logging.info('Prediction starts on test dataset')
+        cnt = 0
+        for batch, (data, label) in enumerate(test_loader):
+            data = data.type(torch.LongTensor).to(device)
+            label = label.type(torch.FloatTensor)
+            # label = label.to(device)
+            output = model(data)
+            prediction = output > 0.5
+            prediction = prediction.float().cpu()
+
+            y_pred[cnt:cnt+data.shape[0]] = prediction
+            y_score[cnt:cnt+data.shape[0]] = output.cpu()
+            y_true[cnt:cnt+data.shape[0]] = label
+            cnt += data.shape[0]
+        logging.info('Prediction Ended on test dataset')
+
+        del data
+        del output
+
+        y_true = y_true.numpy()
+        y_score = y_score.numpy()
+        y_pred = y_pred.numpy()
+
+    return y_true, y_score, y_pred
