@@ -13,42 +13,16 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from deepec.process_data import read_EC_Fasta
-from deepec.data_loader import EnzymeDataset, EnzymeEmbedDataset
-from deepec.utils import argument_parser, draw, save_losses, FocalLoss
+from deepec.process_data import read_Enzyme_Fasta
+from deepec.data_loader import EnzymeDataset
+from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepECv2_3, DeepEC_emb
+from deepec.model import DeepECv2_3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
 
-
-class DeepECConfig():
-    def __init__(self,
-                 model = None,
-                 optimizer = None,
-                 criterion = None,
-                 scheduler = None,
-                 n_epochs = 50,
-                 device = 'cpu',
-                 patience = 5,
-                 save_name = './deepec.log',
-                 train_source = None,
-                 val_source = None, 
-                 test_source = None):
-        super().__init__()
-        self.model = model
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.scheduler = scheduler
-        self.n_epochs = num_epochs
-        self.device = device
-        self.patience = patience
-        self.save_name = save_name
-        self.train_source = trainDataloader
-        self.val_source = validDataloader
-        self.test_source = testDataloader
 
 
 if __name__ == '__main__':
@@ -63,12 +37,10 @@ if __name__ == '__main__':
     batch_size = options.batch_size
     learning_rate = options.learning_rate
     patience = options.patience
+    num_cpu = options.cpu_num
 
     checkpt_file = options.checkpoint
     input_data_file = options.seq_file
-
-    third_level = options.third_level
-    num_cpu = options.cpu_num
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -88,17 +60,16 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 3
+    gamma = 0
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
                   \tGamma: {gamma}\
                   \tBatch size: {batch_size}\
-                  \tLearning rate: {learning_rate}\
-                  \tPredict upto 3 level: {third_level}')
+                  \tLearning rate: {learning_rate}')
 
 
-    input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+    input_seqs, input_ecs, input_ids = read_Enzyme_Fasta(input_data_file)
 
     train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
     train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
@@ -115,22 +86,16 @@ if __name__ == '__main__':
 
 
 
-    # trainDataset = EnzymeDataset(train_seqs, train_ecs)
-    # valDataset = EnzymeDataset(val_seqs, val_ecs)
-    # testDataset = EnzymeDataset(test_seqs, test_ecs)
-    trainDataset = EnzymeEmbedDataset(train_seqs, train_ecs)
-    valDataset = EnzymeEmbedDataset(val_seqs, val_ecs)
-    testDataset = EnzymeEmbedDataset(test_seqs, test_ecs)
+    trainDataset = EnzymeDataset(train_seqs, np.array(train_ecs))
+    valDataset = EnzymeDataset(val_seqs, np.array(val_ecs))
+    testDataset = EnzymeDataset(test_seqs, np.array(test_ecs))
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    # model = DeepEC(out_features=[0]).to(device)
-#     model = DeepEC_emb(explainECs=[0], num_blocks=[1, 2, 1, 1]).to(device)
-    model = DeepEC_emb(explainECs=[0], num_blocks=[2, 3, 2, 1]).to(device)
-    # model = DeepEC_emb(explainECs=[0], num_blocks=[3, 4, 3, 1]).to(device)
+    model = DeepECv2_3(out_features=[0]).to(device)
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
@@ -152,6 +117,7 @@ if __name__ == '__main__':
     config.train_source = trainDataloader
     config.val_source = validDataloader
     config.test_source = testDataloader
+    config.explainProts = [0]
 
 
     avg_train_losses, avg_val_losses = train(config)
@@ -165,5 +131,10 @@ if __name__ == '__main__':
     precision = precision_score(y_true, y_pred, average='macro')
     recall = recall_score(y_true, y_pred, average='macro')
     f1 = f1_score(y_true, y_pred, average='macro')
-    logging.info(f'Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    logging.info(f'(Macro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    
+    precision = precision_score(y_true, y_pred, average='micro')
+    recall = recall_score(y_true, y_pred, average='micro')
+    f1 = f1_score(y_true, y_pred, average='micro')
+    logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
