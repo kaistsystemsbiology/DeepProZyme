@@ -13,44 +13,15 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from deepec.process_data import read_EC_Fasta, \
-                                getExplainedEC_short, \
-                                convertECtoLevel3
+from deepec.process_data import read_EC_Fasta
 from deepec.data_loader import ECDataset, ECEmbedDataset
-from deepec.utils import argument_parser, draw, save_losses, FocalLoss
-from deepec.train import train, evalulate, train_emb, evalulate_emb
-from deepec.model import DeepECv2_3, DeepECv2_4, DeepECv2_5, DeepEC_emb, TransformerModel, HybridModel
+from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
+from deepec.train import train_emb, evalulate_emb
+from deepec.model import HybridModel
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
-
-
-class DeepECConfig():
-    def __init__(self,
-                 model = None,
-                 optimizer = None,
-                 criterion = None,
-                 scheduler = None,
-                 n_epochs = 50,
-                 device = 'cpu',
-                 patience = 5,
-                 save_name = './deepec.log',
-                 train_source = None,
-                 val_source = None, 
-                 test_source = None):
-        super().__init__()
-        self.model = model
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.scheduler = scheduler
-        self.n_epochs = num_epochs
-        self.device = device
-        self.patience = patience
-        self.save_name = save_name
-        self.train_source = trainDataloader
-        self.val_source = validDataloader
-        self.test_source = testDataloader
 
 
 if __name__ == '__main__':
@@ -163,7 +134,7 @@ if __name__ == '__main__':
     validDataloader_emb = DataLoader(valDataset_emb, batch_size=batch_size, shuffle=True)
     testDataloader_emb = DataLoader(testDataset_emb, batch_size=batch_size, shuffle=False)
 
-    ntokens = 21
+    ntokens = 20
     emsize = 64 # embedding dimension
     nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
     nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
