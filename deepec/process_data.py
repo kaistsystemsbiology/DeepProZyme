@@ -24,6 +24,22 @@ def read_EC_Fasta(fasta_file):
     return sequences, ecs, ids
 
 
+def read_Enzyme_Fasta(fasta_file):
+    sequences = []
+    enzymes = []
+    ids = []
+    fp = open(fasta_file, 'r')
+    for seq_record in SeqIO.parse(fp, 'fasta'):
+        seq = seq_record.seq
+        seq_id = seq_record.id
+        enzyme = float(seq_record.description.split('\t')[1])
+        sequences.append(seq)
+        enzymes.append(enzyme)
+        ids.append(seq_id)
+    fp.close()
+    return sequences, enzymes, ids
+
+
 def read_EC_actual_Fasta(fasta_file):
     sequences = []
     ids = []
