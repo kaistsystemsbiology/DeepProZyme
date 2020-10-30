@@ -17,40 +17,13 @@ from deepec.process_data import read_EC_Fasta, \
                                 getExplainedEC_short, \
                                 convertECtoLevel3
 from deepec.data_loader import ECDataset, ECEmbedDataset
-from deepec.utils import argument_parser, draw, save_losses, FocalLoss
+from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
 from deepec.model import DeepECv2_3, DeepECv2_4, DeepECv2_5, DeepEC_emb, TransformerModel
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
-
-
-class DeepECConfig():
-    def __init__(self,
-                 model = None,
-                 optimizer = None,
-                 criterion = None,
-                 scheduler = None,
-                 n_epochs = 50,
-                 device = 'cpu',
-                 patience = 5,
-                 save_name = './deepec.log',
-                 train_source = None,
-                 val_source = None, 
-                 test_source = None):
-        super().__init__()
-        self.model = model
-        self.optimizer = optimizer
-        self.criterion = criterion
-        self.scheduler = scheduler
-        self.n_epochs = num_epochs
-        self.device = device
-        self.patience = patience
-        self.save_name = save_name
-        self.train_source = trainDataloader
-        self.val_source = validDataloader
-        self.test_source = testDataloader
 
 
 if __name__ == '__main__':
@@ -149,28 +122,15 @@ if __name__ == '__main__':
     logging.info(f'Number of ECs in validation data: {len_val_ecs}')
     logging.info(f'Number of ECs in test data: {len_test_ecs}')
 
-    # trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
-    # valDataset = ECDataset(val_seqs, val_ecs, explainECs)
-    # testDataset = ECDataset(test_seqs, test_ecs, explainECs)
-    trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
-    valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
-    testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
+    trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
+    valDataset = ECDataset(val_seqs, val_ecs, explainECs)
+    testDataset = ECDataset(test_seqs, test_ecs, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-    ntokens = 21
-    emsize = 64 # embedding dimension
-    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead = 4 # the number of heads in the multiheadattention models
-    dropout = 0.2 # the dropout value
-    model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
-    # model = DeepECv2_3(out_features=explainECs).to(device)
-    # model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
-    # model = DeepEC_emb(explainECs=explainECs, num_blocks=[2, 3, 2, 1]).to(device)
-    # model = DeepEC_emb(explainECs=explainECs, num_blocks=[3, 4, 3, 1]).to(device)
+    model = DeepECv2_3(out_features=explainECs).to(device)
     # model = nn.DataParallel(model, device_ids=[0, 1])
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
