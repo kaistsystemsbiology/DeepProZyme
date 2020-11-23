@@ -42,7 +42,7 @@ def argument_parser(version=None):
     parser.add_argument('-g', '--gpu', required=False, 
                         default='cuda:0', help='Specify gpu')
     parser.add_argument('-cpu', '--cpu_num', required=False, type=int,
-                        default=1, help='Number of cpus to use')  
+                        default=4, help='Number of cpus to use')  
     parser.add_argument('-ckpt', '--checkpoint', required=False, 
                         default='checkpoint.pt', help='Checkpoint file')
     parser.add_argument('-l', '--log_dir', required=False, 
