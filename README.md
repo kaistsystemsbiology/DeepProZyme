@@ -39,3 +39,12 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 - Run DeepEC predicion
 
         python cnn_running.py -enz ./Dataset/example_tf.fasta -ckpt ./output/ec7_cnn3_03/checkpoint.pt -o ./output/ec7_cnn3_03/prediction_result -g cuda:0
+
+
+- Train short transformer
+
+        python transformer_training.py -i ./Dataset/input_dataset.fa -o ./output/transformer_short_04 -e 50 -p 5 -b 256 -r 1e-3 -g cuda:2 
+
+- Run short transformer
+
+        python transformer_running.py -i ./Dataset/analysis_sequences/substrate_change_seqs.fa -o ./output/transformer_short_09 -ckpt ./output/transformer_short_09/checkpoint.pt -g cuda:0
