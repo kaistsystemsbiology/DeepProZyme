@@ -16,7 +16,7 @@ from deepec.process_data import read_EC_actual_Fasta, \
                                 convertECtoLevel3
 from deepec.data_loader import ECDataset, ECEmbedDataset
 from deepec.utils import argument_parser
-from deepec.model import DeepECv2_3, TransformerModel
+from deepec.model import DeepECv2_3, DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -56,15 +56,15 @@ if __name__ == '__main__':
     nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
     nhead = 4 # the number of heads in the multiheadattention models
     dropout = 0.2 # the dropout value
-    model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
-    # model = DeepECv2(out_features=explainECs)
-    # model = model.to(device)
+    # model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    model = DeepEC(out_features=explainECs).to(device)
     model.load_state_dict(ckpt['model'])
 
     input_seqs, input_ids = read_EC_actual_Fasta(input_data_file)
     pseudo_labels = np.zeros((len(input_seqs)))
 
-    proteinDataset = ECEmbedDataset(input_seqs, pseudo_labels, explainECs, pred=True)
+    # proteinDataset = ECEmbedDataset(input_seqs, pseudo_labels, explainECs, pred=True)
+    proteinDataset = ECDataset(input_seqs, pseudo_labels, explainECs, pred=True)
     proteinDataloader = DataLoader(proteinDataset, batch_size=batch_size, shuffle=False)
 
     model.eval() # training session with train dataset

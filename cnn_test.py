@@ -19,7 +19,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECDataset, ECEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepECv2_3, DeepEC_emb
+from deepec.model import DeepECv2_3, DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 3
+    gamma = 0
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepECv2_3(out_features=explainECs).to(device)
+    model = DeepEC(out_features=explainECs).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[2, 3, 2, 1]).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[3, 4, 3, 1]).to(device)
