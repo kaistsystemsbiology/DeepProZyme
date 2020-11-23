@@ -14,10 +14,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from deepec.process_data import read_EC_Fasta
-from deepec.data_loader import ECDataset, ECEmbedDataset
+from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import TransformerModel
+from deepec.model import TransformerModel, DeepTransformer, DeepTransformer_linear
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -61,14 +61,16 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 3
+    gamma = 0
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
                   \tGamma: {gamma}\
                   \tBatch size: {batch_size}\
                   \tLearning rate: {learning_rate}\
+                  \tGPU: {device}\
                   \tPredict upto 3 level: {third_level}')
+    logging.info(f'Input file directory: {input_data_file}')
 
 
     input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
@@ -123,6 +125,9 @@ if __name__ == '__main__':
     trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
     valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
     testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
+    # trainDataset = ECShortEmbedDataset(train_seqs, train_ecs, explainECs)
+    # valDataset = ECShortEmbedDataset(val_seqs, val_ecs, explainECs)
+    # testDataset = ECShortEmbedDataset(test_seqs, test_ecs, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
@@ -130,12 +135,15 @@ if __name__ == '__main__':
 
     ntokens = 20
     emsize = 64 # embedding dimension
-    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 8 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead = 8 # the number of heads in the multiheadattention models
+    nhid = 64 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 4 # the number of heads in the multiheadattention models
     dropout = 0.2 # the dropout value
-    model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
-    # model = nn.DataParallel(model, device_ids=[0, 1])
+    logging.info(f'Network architecture info\n\
+                    ntoken {ntokens}\temsize {emsize}\tnhid {nhid}\tnlayers {nlayers}\tnhead {nhead}')
+    model = DeepTransformer(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    # model = DeepTransformer_linear(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    model = nn.DataParallel(model, device_ids=[0, 2])
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
