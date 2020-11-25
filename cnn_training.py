@@ -19,7 +19,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepECv2_3, DeepECv2_2, DeepEC_emb, DeepEC
+from deepec.model import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -72,6 +72,7 @@ if __name__ == '__main__':
                   \tLearning rate: {learning_rate}\
                   \tGPU: {device}\
                   \tPredict upto 3 level: {third_level}')
+    logging.info(f'Input file directory: {input_data_file}')
 
 
     input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
