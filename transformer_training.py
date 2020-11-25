@@ -17,7 +17,7 @@ from deepec.process_data import read_EC_Fasta
 from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import TransformerModel, DeepTransformer, DeepTransformer_linear
+from deepec.model import DeepTransformer, DeepTransformer_linear
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
