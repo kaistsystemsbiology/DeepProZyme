@@ -238,6 +238,7 @@ class DeepTransformer(nn.Module):
         super(DeepTransformer, self).__init__()
         self.model_type = 'Transformer'
         self.seq_len = 1000
+        self.src_mask = None
         self.explainProts = explainProts
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)
@@ -268,26 +269,28 @@ class DeepTransformer(nn.Module):
         self.encoder.weight.data.uniform_(-initrange, initrange)
         for m in [self.fc2, self.conv1, self.conv2]:
             m.weight.data.uniform_(-initrange, initrange)
-    
+
+            # from transformer_03
+            m.bias.data.zero_()
 
     def forward(self, src):
         src = src.type(torch.long).T
-        if self.src_mask is None or self.src_mask.size(0) != src.size(0):
-            device = src.device
-            mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
-            self.src_mask = mask
+        # from transformer_05, mask == None
+        # if self.src_mask is None or self.src_mask.size(0) != src.size(0):
+        #     device = src.device
+        #     mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
+        #     self.src_mask = mask
 
         src = self.encoder(src) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        x = self.transformer_encoder(src, self.src_mask)
-        x.transpose_(0, 1)
-        bs, length, ninp = x.size()
-        x = x.view(bs, 1, length, ninp)
-        x = self.relu(self.bn1(self.conv1(x)))
-        x = self.relu(self.bn2(self.conv2(x)))
-        x = self.pool(x)
-        x = x.view(-1, 128*3)
-        return self.fc2(x)
+        src = self.transformer_encoder(src, self.src_mask)
+        src.transpose_(0, 1)
+        bs, length, ninp = src.size()
+        src = src.view(bs, 1, length, ninp)
+        src = self.relu(self.bn1(self.conv1(src)))
+        src = self.relu(self.bn2(self.conv2(src)))
+        src = self.pool(src).view(-1, 128*3)
+        return self.fc2(src)
 
 
 class DeepTransformer_linear(nn.Module):
