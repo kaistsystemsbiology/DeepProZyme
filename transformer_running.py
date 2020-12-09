@@ -16,7 +16,7 @@ from deepec.process_data import read_EC_actual_Fasta, \
                                 convertECtoLevel3
 from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortEmbedDataset
 from deepec.utils import argument_parser
-from deepec.model import DeepTransformer, TransformerModel
+from deepec.model import DeepTransformer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -51,13 +51,13 @@ if __name__ == '__main__':
     explainECs = ckpt['explainECs']
 
     ntokens = 20
-    emsize = 64 # embedding dimension
-    nhid = 64 # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead = 4 # the number of heads in the multiheadattention models
+    emsize = 128 # embedding dimension
+    nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 1 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 8 # the number of heads in the multiheadattention models
     dropout = 0.2 # the dropout value
     model = DeepTransformer(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
-    model = nn.DataParallel(model, device_ids=[device[-1]])
+    model = nn.DataParallel(model, device_ids=[int(device[-1])])
     model.load_state_dict(ckpt['model'])
 
     input_seqs, input_ids = read_EC_actual_Fasta(input_data_file)
