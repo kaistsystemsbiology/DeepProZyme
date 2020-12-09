@@ -17,7 +17,7 @@ from deepec.process_data import read_EC_Fasta
 from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import TransformerModel, DeepTransformer, DeepTransformer_linear
+from deepec.model import DeepTransformer, DeepTransformer_linear
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 1
+    gamma = 0
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
@@ -99,16 +99,17 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
     ntokens = 20
-    emsize = 64 # embedding dimension
-    nhid = 64 # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead = 4 # the number of heads in the multiheadattention models
+    emsize = 128 # embedding dimension
+    nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers = 1 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead = 8 # the number of heads in the multiheadattention models
     dropout = 0.2 # the dropout value
     logging.info(f'Network architecture info\n\
                     ntoken {ntokens}\temsize {emsize}\tnhid {nhid}\tnlayers {nlayers}\tnhead {nhead}')
-    model = DeepTransformer(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
+    model = DeepTransformer(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs)
     # model = DeepTransformer_linear(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
-    model = nn.DataParallel(model, device_ids=[device])
+    model = nn.DataParallel(model, device_ids=[int(device[-1])])
+    model = model.to(device)
     # logging.info(f'Model Architecture: \n{model}')
     # num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     # logging.info(f'Number of trainable parameters: {num_train_params}')
@@ -146,3 +147,25 @@ if __name__ == '__main__':
     f1 = f1_score(y_true, y_pred, average='micro')
     logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
+    # len_ECs = len(explainECs)
+
+    # fpr = dict()
+    # tpr = dict()
+    # roc_auc = dict()
+    # prec = dict()
+    # rec = dict()
+    # f1s = dict()
+
+    # for i in range(len_ECs):
+    #     fpr[i], tpr[i], _ = roc_curve(y_true[:, i], y_score[:, i])
+    #     roc_auc[i] = auc(fpr[i], tpr[i])
+    #     prec[i] = precision_score(y_true[:, i], y_pred[:, i], )
+    #     rec[i] = recall_score(y_true[:, i], y_pred[:, i])
+    #     f1s[i] = f1_score(y_true[:, i], y_pred[:, i])
+
+    # fp = open(f'{output_dir}/performance_indices.txt', 'w')
+    # fp.write('EC\tAUC\tPrecision\tRecall\tF1\n')
+    # for ind in roc_auc:
+    #     ec = explainECs[ind]
+    #     fp.write(f'{ec}\t{roc_auc[ind]}\t{prec[ind]}\t{rec[ind]}\t{f1s[ind]}\n')
+    # fp.close()
