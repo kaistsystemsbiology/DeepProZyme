@@ -170,6 +170,67 @@ def evalulate(config):
     return y_true, y_score, y_pred
 
 
+def evalulate_mcdropout(config):
+    model = config.model
+    model.eval() # training session with train dataset
+    num_data = config.test_source.dataset.__len__()
+    len_ECs = len(config.explainProts)
+    device = config.device
+
+    def enable_dropout(model):
+        """ Function to enable the dropout layers during test-time """
+        for m in model.modules():
+            if m.__class__.__name__.startswith('Dropout'):
+                print(m.__class__.__name__)
+                m.train()
+
+    enable_dropout((model))
+
+    with torch.no_grad():
+        y_pred = torch.zeros([num_data, len_ECs])
+        y_pred_2 = torch.zeros([num_data, len_ECs])
+        y_score = torch.zeros([num_data, len_ECs])
+        y_true = torch.zeros([num_data, len_ECs])
+        logging.info('Prediction starts on test dataset')
+        cnt = 0
+        for batch, (data, label) in enumerate(config.test_source):
+            data = data.type(torch.FloatTensor).to(device)
+            label = label.type(torch.FloatTensor)
+            outputs = []
+            for i in range(100):
+                output = model(data)
+                output = torch.sigmoid(output)
+                outputs.append(output)
+            outputs = torch.stack(outputs)
+            output = outputs.mean(dim=0)
+            output_std = outputs.std(dim=0)
+
+            prediction = output > 0.5
+            prediction = prediction.float().cpu()
+            y_pred[cnt:cnt+data.shape[0]] = prediction
+
+            prediction = output - output_std > 0.5
+            prediction = prediction.float().cpu()
+            y_pred_2[cnt:cnt+data.shape[0]] = prediction
+
+            y_score[cnt:cnt+data.shape[0]] = output.cpu()
+            y_true[cnt:cnt+data.shape[0]] = label
+            cnt += data.shape[0]
+        logging.info('Prediction Ended on test dataset')
+
+        del data
+        del output
+        del outputs
+        del output_std
+
+        y_true = y_true.numpy()
+        y_score = y_score.numpy()
+        y_pred = y_pred.numpy()
+        y_pred_2 = y_pred_2.numpy()
+
+    return y_true, y_score, y_pred, y_pred_2
+
+
 
 ######################
 
