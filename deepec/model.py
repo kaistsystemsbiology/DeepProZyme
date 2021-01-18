@@ -7,7 +7,7 @@ from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
 
 class CNN0(nn.Module):
-    '''
+    '''=
     Use second level convolution.
     channel size: 4 -> 16 
                   8 -> 12
@@ -238,7 +238,6 @@ class DeepTransformer(nn.Module):
         super(DeepTransformer, self).__init__()
         self.model_type = 'Transformer'
         self.seq_len = 1000
-        self.src_mask = None
         self.explainProts = explainProts
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, dropout)
@@ -259,34 +258,23 @@ class DeepTransformer(nn.Module):
 
         self.init_weights()
 
-    def _generate_square_subsequent_mask(self, sz):
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
-        return mask
 
     def init_weights(self):
         initrange = 0.1
-        self.encoder.weight.data.uniform_(-initrange, initrange)
+        # self.encoder.weight.data.uniform_(-initrange, initrange)
+        nn.init.xavier_uniform_(self.encoder.weight) # DeepTransformer 11
         for m in [self.fc2, self.conv1, self.conv2]:
-            m.weight.data.uniform_(-initrange, initrange)
-
-            # from transformer_03
+            nn.init.xavier_uniform_(m.weight) # DeepTransformer 11
+            # m.weight.data.uniform_(-initrange, initrange)
             m.bias.data.zero_()
 
-    def forward(self, src):
+    def forward(self, src, src_mask):
         src = src.type(torch.long).T
-        # from transformer_05, mask == None
-        # if self.src_mask is None or self.src_mask.size(0) != src.size(0):
-        #     device = src.device
-        #     mask = self._generate_square_subsequent_mask(src.size(0)).to(device)
-        #     self.src_mask = mask
-
         src = self.encoder(src) * math.sqrt(self.ninp)
         src = self.pos_encoder(src)
-        src = self.transformer_encoder(src, self.src_mask)
+        src = self.transformer_encoder(src, src_key_padding_mask=src_mask)
         src.transpose_(0, 1)
-        bs, length, ninp = src.size()
-        src = src.view(bs, 1, length, ninp)
+        src = src.view(-1, 1, self.seq_len, self.ninp)
         src = self.relu(self.bn1(self.conv1(src)))
         src = self.relu(self.bn2(self.conv2(src)))
         src = self.pool(src).view(-1, 128*3)
