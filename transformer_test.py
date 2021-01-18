@@ -14,10 +14,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from deepec.process_data import read_EC_Fasta
-from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortEmbedDataset
+from deepec.data_loader import ECEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
-from deepec.train import train, evalulate
-from deepec.model import DeepTransformer, DeepTransformer_linear
+from deepec.train import train_mask, evalulate_mask
+from deepec.model import DeepTransformer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     logging.info(f'Input file directory: {input_data_file}')
 
 
-    input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+    input_seqs, input_ecs, _ = read_EC_Fasta(input_data_file)
 
     _, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
     _, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
@@ -98,17 +98,17 @@ if __name__ == '__main__':
     testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-    ntokens = 20
+    ntokens = 21
     emsize = 128 # embedding dimension
     nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 1 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
     nhead = 8 # the number of heads in the multiheadattention models
     dropout = 0.2 # the dropout value
     logging.info(f'Network architecture info\n\
                     ntoken {ntokens}\temsize {emsize}\tnhid {nhid}\tnlayers {nlayers}\tnhead {nhead}')
     model = DeepTransformer(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs)
     # model = DeepTransformer_linear(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
-    model = nn.DataParallel(model, device_ids=[int(device[-1])])
+    model = nn.DataParallel(model, device_ids=[1, 2, 3])
     model = model.to(device)
     # logging.info(f'Model Architecture: \n{model}')
     # num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -136,16 +136,16 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{output_dir}/{checkpt_file}', map_location=device)
     model.load_state_dict(ckpt['model'])
 
-    y_true, y_score, y_pred = evalulate(config)
+    y_true, y_score, y_pred = evalulate_mask(config)
     precision = precision_score(y_true, y_pred, average='macro')
     recall = recall_score(y_true, y_pred, average='macro')
     f1 = f1_score(y_true, y_pred, average='macro')
     logging.info(f'(Macro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
-    precision = precision_score(y_true, y_pred, average='micro')
-    recall = recall_score(y_true, y_pred, average='micro')
-    f1 = f1_score(y_true, y_pred, average='micro')
-    logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    # precision = precision_score(y_true, y_pred, average='micro')
+    # recall = recall_score(y_true, y_pred, average='micro')
+    # f1 = f1_score(y_true, y_pred, average='micro')
+    # logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
     # len_ECs = len(explainECs)
 

@@ -13,11 +13,13 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from deepec.process_data import read_EC_Fasta
-from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortEmbedDataset
+from deepec.process_data import read_EC_Fasta, \
+                                getExplainedEC_short, \
+                                convertECtoLevel3
+from deepec.data_loader import ECEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
-from deepec.train import train, evalulate
-from deepec.model import DeepTransformer, DeepTransformer_linear
+from deepec.train import train_mask, evalulate_mask
+from deepec.model import DeepTransformer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -74,6 +76,7 @@ if __name__ == '__main__':
 
 
     input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+    # input_seqs, input_ecs, input_ids = input_seqs[:3000], input_ecs[:3000], input_ids[:3000]
 
     train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
     train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
@@ -125,25 +128,22 @@ if __name__ == '__main__':
     trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
     valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
     testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
-    # trainDataset = ECShortEmbedDataset(train_seqs, train_ecs, explainECs)
-    # valDataset = ECShortEmbedDataset(val_seqs, val_ecs, explainECs)
-    # testDataset = ECShortEmbedDataset(test_seqs, test_ecs, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-    ntokens = 20
+    ntokens = 21
     emsize = 128 # embedding dimension
     nhid = 256 # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 1 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
     nhead = 8 # the number of heads in the multiheadattention models
     dropout = 0.2 # the dropout value
     logging.info(f'Network architecture info\n\
                     ntoken {ntokens}\temsize {emsize}\tnhid {nhid}\tnlayers {nlayers}\tnhead {nhead}')
     model = DeepTransformer(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs)
     # model = DeepTransformer_linear(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs)
-    model = nn.DataParallel(model, device_ids=[0, 1, 2])
+    model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -169,14 +169,14 @@ if __name__ == '__main__':
     config.explainProts = explainECs
 
 
-    avg_train_losses, avg_val_losses = train(config)
+    avg_train_losses, avg_val_losses = train_mask(config)
     save_losses(avg_train_losses, avg_val_losses, output_dir=output_dir)
     draw(avg_train_losses, avg_val_losses, output_dir=output_dir)
 
     ckpt = torch.load(f'{output_dir}/{checkpt_file}')
     model.load_state_dict(ckpt['model'])
 
-    y_true, y_score, y_pred = evalulate(config)
+    y_true, y_score, y_pred = evalulate_mask(config)
     precision = precision_score(y_true, y_pred, average='macro')
     recall = recall_score(y_true, y_pred, average='macro')
     f1 = f1_score(y_true, y_pred, average='macro')
@@ -187,25 +187,25 @@ if __name__ == '__main__':
     f1 = f1_score(y_true, y_pred, average='micro')
     logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
-    len_ECs = len(explainECs)
+    # len_ECs = len(explainECs)
 
-    fpr = dict()
-    tpr = dict()
-    roc_auc = dict()
-    prec = dict()
-    rec = dict()
-    f1s = dict()
+    # fpr = dict()
+    # tpr = dict()
+    # roc_auc = dict()
+    # prec = dict()
+    # rec = dict()
+    # f1s = dict()
 
-    for i in range(len_ECs):
-        fpr[i], tpr[i], _ = roc_curve(y_true[:, i], y_score[:, i])
-        roc_auc[i] = auc(fpr[i], tpr[i])
-        prec[i] = precision_score(y_true[:, i], y_pred[:, i], )
-        rec[i] = recall_score(y_true[:, i], y_pred[:, i])
-        f1s[i] = f1_score(y_true[:, i], y_pred[:, i])
+    # for i in range(len_ECs):
+    #     fpr[i], tpr[i], _ = roc_curve(y_true[:, i], y_score[:, i])
+    #     roc_auc[i] = auc(fpr[i], tpr[i])
+    #     prec[i] = precision_score(y_true[:, i], y_pred[:, i], )
+    #     rec[i] = recall_score(y_true[:, i], y_pred[:, i])
+    #     f1s[i] = f1_score(y_true[:, i], y_pred[:, i])
 
-    fp = open(f'{output_dir}/performance_indices.txt', 'w')
-    fp.write('EC\tAUC\tPrecision\tRecall\tF1\n')
-    for ind in roc_auc:
-        ec = explainECs[ind]
-        fp.write(f'{ec}\t{roc_auc[ind]}\t{prec[ind]}\t{rec[ind]}\t{f1s[ind]}\n')
-    fp.close()
+    # fp = open(f'{output_dir}/performance_indices.txt', 'w')
+    # fp.write('EC\tAUC\tPrecision\tRecall\tF1\n')
+    # for ind in roc_auc:
+    #     ec = explainECs[ind]
+    #     fp.write(f'{ec}\t{roc_auc[ind]}\t{prec[ind]}\t{rec[ind]}\t{f1s[ind]}\n')
+    # fp.close()
