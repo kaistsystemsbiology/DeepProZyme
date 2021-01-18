@@ -16,7 +16,7 @@ from deepec.process_data import read_EC_actual_Fasta, \
                                 convertECtoLevel3
 from deepec.data_loader import ECDataset, ECEmbedDataset
 from deepec.utils import argument_parser
-from deepec.model import DeepECv2_3, DeepEC
+from deepec.model import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -50,17 +50,15 @@ if __name__ == '__main__':
     ckpt = torch.load(f'{checkpt_file}', map_location=device)
     explainECs = ckpt['explainECs']
 
-    ntokens = 21
-    emsize = 64 # embedding dimension
-    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers = 4 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead = 4 # the number of heads in the multiheadattention models
-    dropout = 0.2 # the dropout value
-    # model = TransformerModel(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs).to(device)
-    model = DeepEC(out_features=explainECs).to(device)
+
+    model = DeepEC(out_features=explainECs)
+    model = nn.DataParallel(model, device_ids=[0,1,2,3])
+    model = model.to(device)
     model.load_state_dict(ckpt['model'])
 
     input_seqs, input_ids = read_EC_actual_Fasta(input_data_file)
+    _, input_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
+    _, input_ids = train_test_split(input_ids, test_size=0.1, random_state=seed_num)
     pseudo_labels = np.zeros((len(input_seqs)))
 
     # proteinDataset = ECEmbedDataset(input_seqs, pseudo_labels, explainECs, pred=True)
