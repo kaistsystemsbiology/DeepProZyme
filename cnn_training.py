@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_EC_Fasta, \
                                 getExplainedEC_short, \
                                 convertECtoLevel3
-from deepec.data_loader import ECDataset, ECEmbedDataset, ECShortDataset
+from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
 from deepec.model import DeepEC
@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 0
+    gamma = 1
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
@@ -127,16 +127,14 @@ if __name__ == '__main__':
     trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
     valDataset = ECDataset(val_seqs, val_ecs, explainECs)
     testDataset = ECDataset(test_seqs, test_ecs, explainECs)
-    # trainDataset = ECShortDataset(train_seqs, train_ecs, explainECs)
-    # valDataset = ECShortDataset(val_seqs, val_ecs, explainECs)
-    # testDataset = ECShortDataset(test_seqs, test_ecs, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-    model = DeepEC(out_features=explainECs).to(device)
-    # model = DeepECv2_3(out_features=explainECs).to(device)
+    model = DeepEC(out_features=explainECs)
+    model = nn.DataParallel(model, device_ids=[1, 0, 2, 3])
+    model = model.to(device)
     # model = nn.DataParallel(model, device_ids=[2, 3])
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
