@@ -19,7 +19,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECDataset, ECEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepECv2_3, DeepEC
+from deepec.model import DeepEC
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -124,7 +124,9 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=explainECs).to(device)
+    model = DeepEC(out_features=explainECs)
+    model = nn.DataParallel(model, device_ids=[1, 2, 3])
+    model = model.to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[2, 3, 2, 1]).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[3, 4, 3, 1]).to(device)
@@ -160,8 +162,8 @@ if __name__ == '__main__':
     f1 = f1_score(y_true, y_pred, average='macro')
     logging.info(f'(Macro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
-    precision = precision_score(y_true, y_pred, average='micro')
-    recall = recall_score(y_true, y_pred, average='micro')
-    f1 = f1_score(y_true, y_pred, average='micro')
-    logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
+    # precision = precision_score(y_true, y_pred, average='micro')
+    # recall = recall_score(y_true, y_pred, average='micro')
+    # f1 = f1_score(y_true, y_pred, average='micro')
+    # logging.info(f'(Micro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
     
