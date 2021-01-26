@@ -19,7 +19,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepEC
+from deepec.model import DeepEC2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-    model = DeepEC(out_features=explainECs)
+    model = DeepEC2(out_features=explainECs)
     model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     # model = nn.DataParallel(model, device_ids=[2, 3])
