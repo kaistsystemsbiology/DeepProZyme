@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 1
+    gamma = 2
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     logging.info(f'Input file directory: {input_data_file}')
 
 
-    input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
+    input_seqs, input_ecs, _ = read_EC_Fasta(input_data_file)
 
     train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
     train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
@@ -133,7 +133,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
     model = DeepEC(out_features=explainECs)
-    model = nn.DataParallel(model, device_ids=[1, 0, 2, 3])
+    model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     # model = nn.DataParallel(model, device_ids=[2, 3])
     logging.info(f'Model Architecture: \n{model}')
