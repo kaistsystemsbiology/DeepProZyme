@@ -19,7 +19,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepEC2
+from deepec.model import DeepEC, DeepEC2
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
