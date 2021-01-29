@@ -11,6 +11,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
 
 from deepec.process_data import read_EC_Fasta, \
@@ -24,6 +25,43 @@ from deepec.model import DeepTransformer
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
+
+class WarmupOpt:
+    def __init__(self, optimizer, model_size, warmup_step):
+        self.optimizer = optimizer
+        self.model_size = model_size
+        self.warmup_step = warmup_step
+        self._step = 0
+        self._rate = 0
+
+    def zero_grad(self):
+        self.optimizer.zero_grad()
+
+    def rate(self, step=None):
+        if step is None:
+            step = self._step
+        return self.model_size**(-0.5)*min((step/100)**(-0.5), (step/100)*self.warmup_step**(-1.5))
+    
+    def step(self):
+        self._step += 1
+        rate = self.rate()
+        for p in self.optimizer.param_groups:
+            p['lr'] = rate
+        self._rate = rate
+        self.optimizer.step()
+
+    def state_dict(self):
+        return self.optimizer.state_dict()
+
+
+def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
+    def lr_lambda(current_step: int):
+        if current_step+1 < num_warmup_steps:
+            return float(current_step+1) / float(max(1, num_warmup_steps))
+        return max(
+            0.0, float(num_training_steps+1 - current_step-1) / float(max(1, num_training_steps+1 - num_warmup_steps))
+        )
+    return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
 if __name__ == '__main__':
@@ -156,40 +194,18 @@ if __name__ == '__main__':
     logging.info(f'Number of trainable parameters: {num_train_params}')
 
     optimizer_adam = optim.Adam(model.parameters(), lr=learning_rate, )
-    criterion = FocalLoss(gamma=gamma)
-    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
-    
-    class WarmupOpt:
-        def __init__(self, optimizer, model_size, warmup_step):
-            self.optimizer = optimizer
-            self.model_size = model_size
-            self.warmup_step = warmup_step
-            self._step = 0
-            self._rate = 0
-
-        def zero_grad(self):
-            self.optimizer.zero_grad()
-
-        def rate(self, step=None):
-            if step is None:
-                step = self._step
-            return self.model_size**(-0.5)*min(step**(-0.5), step*self.warmup_step**(-1.5))
-        
-        def step(self):
-            self._step += 1
-            rate = self.rate()
-            for p in self.optimizer.param_groups:
-                p['lr'] = rate
-            self._rate = rate
-            self.optimizer.step()
-
-        def state_dict(self):
-            return self.optimizer.state_dict()
-
-    optimizer = WarmupOpt(optimizer_adam, emsize, warmup_step=4000)
+    optimizer = WarmupOpt(optimizer_adam, emsize, warmup_step=800)
     scheduler = None
-    # scheduler = optim.lr_scheduler.LambdaLR(optimizer, step_size=1, gamma=0.95)
+    logging.info(f'Learning rate scheduling: Warmup, step: 800')
+
+    # optimizer = optim.Adam(model.parameters(), lr=learning_rate, )
+    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
     # logging.info(f'Learning rate scheduling: step size: 1\tgamma: 0.95')
+    # warmup_step = 3
+    # scheduler = get_linear_schedule_with_warmup(optimizer, warmup_step, num_epochs)
+    # logging.info(f'Learning rate scheduling: linear warmup to {warmup_step}\tLambdaLR')
+
+    criterion = FocalLoss(gamma=gamma)
 
 
     config = DeepECConfig()
