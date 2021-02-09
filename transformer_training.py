@@ -28,10 +28,11 @@ formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
 
 
 class WarmupOpt:
-    def __init__(self, optimizer, model_size, warmup_step):
+    def __init__(self, optimizer, model_size, warmup_step=10000, unit_step=20):
         self.optimizer = optimizer
         self.model_size = model_size
         self.warmup_step = warmup_step
+        self.unit_step = unit_step
         self._step = 0
         self._rate = 0
 
@@ -41,7 +42,7 @@ class WarmupOpt:
     def rate(self, step=None):
         if step is None:
             step = self._step
-        return self.model_size**(-0.5)*min((step/100)**(-0.5), (step/100)*self.warmup_step**(-1.5))
+        return self.model_size**(-0.5)*min((step/self.unit_step)**(-0.5), (step/self.unit_step)*self.warmup_step**(-1.5))
     
     def step(self):
         self._step += 1
@@ -54,15 +55,6 @@ class WarmupOpt:
     def state_dict(self):
         return self.optimizer.state_dict()
 
-
-def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
-    def lr_lambda(current_step: int):
-        if current_step+1 < num_warmup_steps:
-            return float(current_step+1) / float(max(1, num_warmup_steps))
-        return max(
-            0.0, float(num_training_steps+1 - current_step-1) / float(max(1, num_training_steps+1 - num_warmup_steps))
-        )
-    return LambdaLR(optimizer, lr_lambda, last_epoch)
 
 
 def get_linear_schedule_with_warmup(optimizer, num_warmup_steps, num_training_steps, last_epoch=-1):
@@ -183,10 +175,10 @@ if __name__ == '__main__':
 
     ntokens = 21
     emsize = 64 # embedding dimension
-    nhid = 128 # the dimension of the feedforward network model in nn.TransformerEncoder
+    nhid = 64 # the dimension of the feedforward network model in nn.TransformerEncoder
     nlayers = 2 # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
     nhead = 4 # the number of heads in the multiheadattention models
-    dropout = 0.2 # the dropout value
+    dropout = 0.1 # the dropout value
     logging.info(f'Network architecture info\n\
                     ntoken {ntokens}\temsize {emsize}\tnhid {nhid}\tnlayers {nlayers}\tnhead {nhead}')
     model = DeepTransformer(ntokens, emsize, nhead, nhid, nlayers, dropout, explainECs)
@@ -198,9 +190,11 @@ if __name__ == '__main__':
     logging.info(f'Number of trainable parameters: {num_train_params}')
 
     optimizer_adam = optim.Adam(model.parameters(), lr=learning_rate, )
-    optimizer = WarmupOpt(optimizer_adam, emsize, warmup_step=4000)
+    warmup_step = 10000
+    unit_step = 20
+    optimizer = WarmupOpt(optimizer_adam, emsize, warmup_step=warmup_step, unit_step=unit_step)
     scheduler = None
-    logging.info(f'Learning rate scheduling: Warmup, step: 4000')
+    logging.info(f'Learning rate scheduling: Warmup step: {warmup_step}\tUnit step: {unit_step}')
 
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate, )
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
@@ -235,6 +229,7 @@ if __name__ == '__main__':
 
     y_true, y_score, y_pred = evalulate_mask(config)
     precision = precision_score(y_true, y_pred, average='macro')
+    print('Precision', precision)
     recall = recall_score(y_true, y_pred, average='macro')
     f1 = f1_score(y_true, y_pred, average='macro')
     logging.info(f'(Macro) Precision: {precision}\tRecall: {recall}\tF1: {f1}')
