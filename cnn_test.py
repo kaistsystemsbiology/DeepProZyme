@@ -19,7 +19,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECDataset, ECEmbedDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepEC
+from deepec.model import DeepEC, DeepEC2, DeepEC3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     # trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
     # valDataset = ECDataset(val_seqs, val_ecs, explainECs)
-    testDataset = ECDataset(test_seqs, test_ecs, explainECs)
+    testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
     # trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
     # valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
     # testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
@@ -124,8 +124,8 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
 
-    model = DeepEC(out_features=explainECs)
-    model = nn.DataParallel(model, device_ids=[1, 2, 3])
+    model = DeepEC3(out_features=explainECs)
+    model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[1, 2, 1, 1]).to(device)
     # model = DeepEC_emb(explainECs=explainECs, num_blocks=[2, 3, 2, 1]).to(device)
