@@ -139,7 +139,7 @@ if __name__ == '__main__':
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-    model = DeepEC2(out_features=explainECs)
+    model = DeepEC(out_features=explainECs)
     model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     # model = nn.DataParallel(model, device_ids=[2, 3])
