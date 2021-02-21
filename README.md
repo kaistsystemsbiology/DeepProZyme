@@ -30,6 +30,7 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 - Train CNN3
 
         python cnn_training.py -i ./Dataset/DeepEC_v2_input_sequences.fa -o ./output/deepec_v2_01 -g cuda:0 -e 50 -b 128 -r 1e-3 -p 5 -third False
+        python cnn_training.py -o ./output/uniprot_08 -e 30 -p 5 -b 1024 -r 1e-3 -g cuda:0 -i ./Dataset/uniprot_dataset.fa
 
 - Evaluate DeepEC
 
