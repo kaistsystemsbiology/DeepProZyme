@@ -131,18 +131,15 @@ class ECEmbedDataset(Dataset):
     
     def __getitem__(self, idx):
         x = self.data_X[idx]
-        seq_len = len(x)
         x = self.convert2onehot_seq(x)
-        mask = torch.zeros(x.shape)
-        mask[seq_len:].fill_(1.0)
 
         if self.pred:
-            return x, mask
+            return x
 
         y = self.data_Y[idx]
         y = self.convert2onehot_EC(y)
         y = y.reshape(-1)
-        return x, mask, y
+        return x, y
 
 
 ######
