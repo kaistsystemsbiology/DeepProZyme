@@ -27,10 +27,11 @@ logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
 
 class WarmupOpt:
-    def __init__(self, optimizer, model_size, warmup_step):
+    def __init__(self, optimizer, model_size, warmup_step=8000, unit_step=100):
         self.optimizer = optimizer
         self.model_size = model_size
         self.warmup_step = warmup_step
+        self.unit_step = unit_step
         self._step = 0
         self._rate = 0
 
@@ -40,7 +41,7 @@ class WarmupOpt:
     def rate(self, step=None):
         if step is None:
             step = self._step
-        return self.model_size**(-0.5)*min((step/100)**(-0.5), (step/100)*self.warmup_step**(-1.5))
+        return self.model_size**(-2.0)*min((step/self.unit_step)**(-0.5), (step/self.unit_step)*self.warmup_step**(-1.5))
     
     def step(self):
         self._step += 1
@@ -194,9 +195,12 @@ if __name__ == '__main__':
     logging.info(f'Number of trainable parameters: {num_train_params}')
 
     optimizer_adam = optim.Adam(model.parameters(), lr=learning_rate, )
-    optimizer = WarmupOpt(optimizer_adam, emsize, warmup_step=800)
+    model_size = emsize
+    warmup_step = 5000
+    unit_step = 20
+    optimizer = WarmupOpt(optimizer_adam, model_size=model_size, warmup_step=warmup_step, unit_step=unit_step)
     scheduler = None
-    logging.info(f'Learning rate scheduling: Warmup, step: 800')
+    logging.info(f'Learning rate scheduling: Warmup step: {warmup_step}\tUnit step: {unit_step}')
 
     # optimizer = optim.Adam(model.parameters(), lr=learning_rate, )
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
