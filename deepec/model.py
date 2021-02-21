@@ -339,7 +339,7 @@ class DeepTransformer(nn.Module):
 
     def forward(self, src, src_mask):
         src = src.type(torch.long).T
-        src = self.encoder(src) * math.sqrt(self.ninp)
+        src = self.encoder(src)
         src = self.pos_encoder(src)
         src, _ = self.transformer_encoder(src, src_key_padding_mask=src_mask)
         src.transpose_(0, 1)
@@ -388,6 +388,57 @@ class DeepEC2(nn.Module):
 
         
     def forward(self, x):
+        x = self.relu(self.pool1(self.bn1(self.conv1(x))))        
+        x = self.relu(self.pool2(self.bn2(self.conv2(x))))
+        x = self.relu(self.pool3(self.bn3(self.conv3(x))))
+        x = self.relu(self.pool4(self.bn4(self.conv4(x))))
+        x = x.view(-1, 128*9)
+        x = self.relu(self.bn5(self.fc1(x)))
+        x = self.bn6(self.fc2(x))
+        return x
+
+
+class DeepEC3(nn.Module):
+    def __init__(self, out_features):
+        super(DeepEC3, self).__init__()
+        self.explainECs = out_features
+        self.embed = nn.Embedding(num_embeddings=21, embedding_dim=32)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(5,32))
+        self.conv2 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(5,1))
+        self.conv3 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(5,1))
+        self.conv4 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(5,1))
+        self.bn1 = nn.BatchNorm2d(num_features=128)
+        self.bn2 = nn.BatchNorm2d(num_features=128)
+        self.bn3 = nn.BatchNorm2d(num_features=128)
+        self.bn4 = nn.BatchNorm2d(num_features=128)
+        self.pool1 = nn.MaxPool2d(kernel_size=(4,1), stride=3)
+        self.pool2 = nn.MaxPool2d(kernel_size=(4,1), stride=3)
+        self.pool3 = nn.MaxPool2d(kernel_size=(3,1), stride=3)
+        self.pool4 = nn.MaxPool2d(kernel_size=(4,1), stride=3)
+
+        self.fc1 = nn.Linear(in_features=128*9, out_features=512)
+        self.bn5 = nn.BatchNorm1d(num_features=512)
+        self.fc2 = nn.Linear(in_features=512, out_features=len(out_features))
+        self.bn6 = nn.BatchNorm1d(num_features=len(out_features))
+        self.relu = nn.ReLU()
+        self.out_act = nn.Sigmoid()
+        self.init_weights()
+
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+                m.bias.data.fill_(0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                m.bias.data.fill_(0)
+
+        
+    def forward(self, x):
+        x = self.relu(self.embed(x.type(torch.long)))
+        bs, length, emb_dim = x.size()
+        x = x.view(-1, 1, length, emb_dim)
         x = self.relu(self.pool1(self.bn1(self.conv1(x))))        
         x = self.relu(self.pool2(self.bn2(self.conv2(x))))
         x = self.relu(self.pool3(self.bn3(self.conv3(x))))
