@@ -29,7 +29,7 @@ def argument_parser(version=None):
     
     parser = argparse.ArgumentParser()
     parser.add_argument('-i', '--seq_file', required=False, 
-                        default='./Dataset/input_dataset.fa', help='Sequence data')
+                        default='./Dataset/uniprot_dataset.fa', help='Sequence data')
     parser.add_argument('-o', '--output_dir', required=True, help='Output directory')
     parser.add_argument('-e', '--epoch', required=False, type=int,
                         default=30, help='Total epoch number')
