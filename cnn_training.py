@@ -134,7 +134,7 @@ if __name__ == '__main__':
 
     # model = DeepEC(out_features=explainECs)
     model = DeepEC3(out_features=explainECs)
-    model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
+    # model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     # model = nn.DataParallel(model, device_ids=[2, 3])
     logging.info(f'Model Architecture: \n{model}')
