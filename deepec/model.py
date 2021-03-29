@@ -399,10 +399,12 @@ class DeepEC2(nn.Module):
 
 
 class DeepEC3(nn.Module):
-    def __init__(self, out_features):
+    def __init__(self, out_features, dropout=0.1):
         super(DeepEC3, self).__init__()
         self.explainECs = out_features
         self.embed = nn.Embedding(num_embeddings=21, embedding_dim=32)
+        self.pos_encoder = PositionalEncoding(d_model=32, dropout=dropout)
+        self.dropout = nn.Dropout(p=dropout)
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(5,32))
         self.conv2 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(5,1))
         self.conv3 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=(5,1))
@@ -436,14 +438,61 @@ class DeepEC3(nn.Module):
 
         
     def forward(self, x):
-        x = self.relu(self.embed(x.type(torch.long)))
+        x = self.embed(x.type(torch.long))
+        x = self.pos_encoder(x)
         bs, length, emb_dim = x.size()
         x = x.view(-1, 1, length, emb_dim)
-        x = self.relu(self.pool1(self.bn1(self.conv1(x))))        
-        x = self.relu(self.pool2(self.bn2(self.conv2(x))))
-        x = self.relu(self.pool3(self.bn3(self.conv3(x))))
-        x = self.relu(self.pool4(self.bn4(self.conv4(x))))
+        x = self.pool1(self.dropout(self.relu(self.bn1(self.conv1(x)))))
+        x = self.pool2(self.dropout(self.relu(self.bn2(self.conv2(x)))))
+        x = self.pool3(self.dropout(self.relu(self.bn3(self.conv3(x)))))
+        x = self.pool4(self.dropout(self.relu(self.bn4(self.conv4(x)))))
         x = x.view(-1, 128*9)
         x = self.relu(self.bn5(self.fc1(x)))
         x = self.bn6(self.fc2(x))
         return x
+
+
+class BasicConv(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, padding=0):
+        super(BasicConv, self).__init__()
+        self.conv = nn.Conv2d(in_channels, out_channels, bias=False, kernel_size=kernel_size, padding=padding)
+        self.bn = nn.BatchNorm2d(out_channels)
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.bn(x)
+        return F.relu(x)
+
+
+class InceptionEC(nn.Module):
+    def __init__(self, out_features, *out_channels):
+        super(InceptionEC, self).__init__()
+        self.explainECs = out_features
+        in_channels = 1
+        out_channels = out_channels[0]
+        self.branch1x1 = BasicConv(in_channels, out_channels[0], kernel_size=(1,20))
+        self.branch3x1_1 = BasicConv(in_channels, out_channels[1], kernel_size=(1,20))
+        self.branch3x1_2 = BasicConv(out_channels[1], out_channels[2], kernel_size=(5,1), padding=(2,0))
+        self.branch5x1_1 = BasicConv(in_channels, out_channels[3], kernel_size=(1,20))
+        self.branch5x1_2 = BasicConv(out_channels[3], out_channels[4], kernel_size=(15,1), padding=(7,0))
+        self.branch_pool_1 = nn.AvgPool2d(kernel_size=(3,20), padding=(1,0), stride=1)
+        self.branch_pool_2 = BasicConv(in_channels, out_channels[5], kernel_size=(1,1))
+        
+        num_channels = out_channels[0]+out_channels[2]+out_channels[4]+out_channels[5]
+        self.pool = nn.MaxPool2d(kernel_size=(1000, 1))
+        self.fc = nn.Linear(num_channels, len(out_features))
+
+
+    def forward(self, x):
+        x1 = self.branch1x1(x)
+        x2 = self.branch3x1_1(x)
+        x2 = self.branch3x1_2(x2)
+        x3 = self.branch5x1_1(x)
+        x3 = self.branch5x1_2(x3)
+        x4 = self.branch_pool_1(x)
+        x4 = self.branch_pool_2(x4)
+        x = torch.cat([x1, x2, x3, x4], 1)
+        x = self.pool(x)
+        bs, num_channels, _, _ = x.size()
+        x = x.view(-1, num_channels)
+        return self.fc(x)
