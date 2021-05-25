@@ -25,266 +25,17 @@ from torch.utils.data import DataLoader
 from deepec.process_data import read_EC_Fasta, \
                                 getExplainedEC_short, \
                                 convertECtoLevel3
-from deepec.data_loader import ECEmbedDataset
+from deepec.data_loader import ECEmbedDataset, DeepECDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
-# from deepec.train import train_mask, evalulate_mask
-# from transformers import AdamW
-from transformers import AutoTokenizer
+from deepec.train import train_bert, evaluate_bert
+from deepec.model import ProtBertConvEC
 from transformers import BertConfig
 from transformers import Trainer, TrainingArguments
-from transformers import AutoModelForSequenceClassification, BertModel, BertPreTrainedModel, BertForSequenceClassification
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
-
-class DeepECDataset(Dataset):
-    def __init__(self, data_X, data_Y, explainECs, tokenizer_name='Rostlab/prot_bert_bfd', max_length=1000, pred=False):
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name, do_lower_case=False)
-        self.max_length = max_length
-        self.data_X = data_X
-        self.data_Y = data_Y
-        self.pred = pred
-        self.map_EC = self.getECmap(explainECs)
-        
-        
-    def __len__(self):
-        return len(self.data_X)
     
-    
-    def getECmap(self, explainECs):
-        ec_vocab = list(set(explainECs))
-        ec_vocab.sort()
-        map = {}
-        for i, ec in enumerate(ec_vocab):
-            baseArray = np.zeros(len(ec_vocab))
-            baseArray[i] = 1
-            map[ec] = baseArray
-        return map
-    
-
-    def convert2onehot_EC(self, EC):
-        map_EC = self.map_EC
-        single_onehot = np.zeros(len(map_EC))
-        for each_EC in EC:
-            single_onehot += map_EC[each_EC]
-        return single_onehot
-    
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-            
-        seq = " ".join(str(self.data_X[idx]))
-        seq = re.sub(r"[UZOB]", "X", seq)
-        
-        seq_ids = self.tokenizer(seq, truncation=True, padding='max_length', max_length=self.max_length)
-        
-        sample = {key: torch.tensor(val) for key, val in seq_ids.items()}
-        labels = self.data_Y[idx]
-        labels = self.convert2onehot_EC(labels)
-        labels = labels.reshape(-1)
-        sample['labels'] = torch.tensor(labels)
-        return sample
-    
-    
-class ProtBertMultiLabelClassification(BertForSequenceClassification):
-    def __init__(self, config, out_features=[], fc_gamma=0):
-        super(ProtBertMultiLabelClassification, self).__init__(config)
-        self.explainECs = out_features
-        self.fc_alpha = 1
-        self.fc_gamma = fc_gamma
-        self.bert = BertModel(config)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, len(out_features))
-        nn.init.xavier_uniform_(self.classifier.weight)
-        self.classifier.bias.data.fill_(0)
-        
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
-        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask)
-        pooled_output = self.dropout(pooled_output)
-        logits = self.classifier(pooled_output)
-        return logits
-            
-            
-class EarlyStopping:
-    def __init__(self, save_name='checkpoint.pt', patience=5, verbose=False, delta=0, explainProts=[]):
-        self.save_name = save_name
-        self.patience = patience
-        self.verbose = verbose
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
-        self.val_loss_min = np.Inf
-        self.delta = delta
-        self.explainProts = explainProts
-
-    def __call__(self, model, optimizer, epoch, val_loss):
-        score = -val_loss
-
-        if self.best_score is None:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, epoch)
-        elif score < self.best_score - self.delta:
-            self.counter += 1
-            logging.info(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, epoch)
-            self.counter = 0
-
-    def save_checkpoint(self, val_loss, model, optimizer, epoch):
-        if self.verbose:
-            logging.info(f'Epoch {epoch}: Validation loss decreased ({self.val_loss_min:.12f} --> {val_loss:.12f}).  Saving model ...')
-        
-        ckpt = {'model':model.state_dict(),
-                'optimizer':optimizer.state_dict(),
-                'best_acc':self.best_score,
-                'epoch':epoch,
-                'explainECs':self.explainProts}
-        torch.save(ckpt, self.save_name)
-        self.val_loss_min = val_loss
-        
-
-class WarmupOpt:
-    def __init__(self, optimizer, model_size, warmup_step=10000, unit_step=20):
-        self.optimizer = optimizer
-        self.model_size = model_size
-        self.warmup_step = warmup_step
-        self.unit_step = unit_step
-        self._step = 0
-        self._rate = 0
-
-    def zero_grad(self):
-        self.optimizer.zero_grad()
-
-    def rate(self, step=None):
-        if step is None:
-            step = self._step
-        return self.model_size**(-0.5)*min((step/self.unit_step)**(-0.5), (step/self.unit_step)*self.warmup_step**(-1.5))
-    
-    def step(self):
-        self._step += 1
-        rate = self.rate()
-        for p in self.optimizer.param_groups:
-            p['lr'] = rate
-        self._rate = rate
-        self.optimizer.step()
-
-    def state_dict(self):
-        return self.optimizer.state_dict()
-
-
-
-def train_bert_model(config):
-    device = config.device 
-    train_loader = config.train_source
-    model = config.model
-    optimizer = config.optimizer
-    criterion = config.criterion
-    train_losses = 0
-    n = 0
-
-    model.train()
-    for batch, data in enumerate(train_loader):
-        inputs = {key:val.to(device) for key, val in data.items()}
-        optimizer.zero_grad()
-        output = model(**inputs)
-        loss = criterion(output, inputs['labels'])
-        loss.backward()
-        optimizer.step()
-
-        train_losses += loss.item()
-        n += inputs['labels'].size(0)
-    return train_losses/n
-
-
-def eval_bert_model(config):
-    device = config.device
-    val_loader = config.val_source
-    model = config.model
-    criterion = config.criterion
-    valid_losses = 0
-    n = 0
-
-    model.eval()
-    with torch.no_grad():
-        for batch, data in enumerate(val_loader):
-            inputs = {key:val.to(device) for key, val in data.items()}
-            output = model(**inputs)
-            loss = criterion(output, inputs['labels'])
-            valid_losses += loss.item()
-            n += inputs['labels'].size(0)
-    return valid_losses/n
-
-
-def train_bert(config):
-    early_stopping = EarlyStopping(save_name=config.save_name, 
-                                   patience=config.patience, 
-                                   verbose=True,
-                                   explainProts=config.explainProts
-                                   )
-
-    device = config.device
-    n_epochs = config.n_epochs
-
-    avg_train_losses = torch.zeros(n_epochs).to(device)
-    avg_valid_losses = torch.zeros(n_epochs).to(device)
-    
-    logging.info('Training start')
-    for epoch in range(n_epochs):
-        train_loss = train_bert_model(config)
-        valid_loss = eval_bert_model(config)
-        if config.scheduler != None:
-            config.scheduler.step()
-
-        avg_train_losses[epoch] = train_loss
-        avg_valid_losses[epoch] = valid_loss
-        early_stopping(config.model, config.optimizer, epoch, valid_loss)
-        if early_stopping.early_stop:
-            logging.info('Early stopping')
-            break
-            
-    logging.info('Training end')
-    return avg_train_losses.tolist(), avg_valid_losses.tolist()
-
-
-def evaluate_bert(config):
-    model = config.model
-    model.eval() # training session with train dataset
-    num_data = config.test_source.dataset.__len__()
-    len_ECs = len(config.explainProts)
-    device = config.device
-
-    with torch.no_grad():
-        y_pred = torch.zeros([num_data, len_ECs])
-        y_score = torch.zeros([num_data, len_ECs])
-        y_true = torch.zeros([num_data, len_ECs])
-        logging.info('Prediction starts on test dataset')
-        cnt = 0
-        for batch, data in enumerate(config.test_source):
-            inputs = {key:val.to(device) for key, val in data.items()}
-            output = model(**inputs)
-            output = torch.sigmoid(output)
-            prediction = output > 0.5
-            prediction = prediction.float().cpu()
-
-            y_pred[cnt:cnt+inputs['labels'].shape[0]] = prediction
-            y_score[cnt:cnt+inputs['labels'].shape[0]] = output.cpu()
-            y_true[cnt:cnt+inputs['labels'].shape[0]] = inputs['labels'].cpu()
-            cnt += inputs['labels'].shape[0]
-        logging.info('Prediction Ended on test dataset')
-
-        del inputs
-        del output
-
-        y_true = y_true.numpy()
-        y_score = y_score.numpy()
-        y_pred = y_pred.numpy()
-
-    return y_true, y_score, y_pred
-
 
 
 if __name__ == '__main__':
@@ -337,7 +88,6 @@ if __name__ == '__main__':
 
 
     input_seqs, input_ecs, input_ids = read_EC_Fasta(input_data_file)
-    # input_seqs, input_ecs, input_ids = input_seqs[:3000], input_ecs[:3000], input_ids[:3000]
 
     train_seqs, test_seqs = train_test_split(input_seqs, test_size=0.1, random_state=seed_num)
     train_ecs, test_ecs = train_test_split(input_ecs, test_size=0.1, random_state=seed_num)
@@ -403,27 +153,18 @@ if __name__ == '__main__':
         'num_attention_heads':8, 
         'num_hidden_layers':2}
     )
-    model = ProtBertMultiLabelClassification(config, out_features=explainECs)
+    # model = ProtBertMultiLabelClassification(config, out_features=explainECs)
+    model = ProtBertConvEC(config, out_features=explainECs)
     model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
 
-    # optimizer_adam = optim.Adam(model.parameters(), lr=learning_rate, )
-    # emsize = 128
-    # warmup_step = 10000
-    # unit_step = 20
-    # optimizer = WarmupOpt(optimizer_adam, emsize, warmup_step=warmup_step, unit_step=unit_step)
-    # scheduler = None
-    # logging.info(f'Learning rate scheduling: Warmup step: {warmup_step}\tUnit step: {unit_step}')
-
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, )
     criterion = FocalLoss(gamma=gamma)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.95)
     logging.info(f'Learning rate scheduling: step size: 1\tgamma: 0.95')
-
-    criterion = FocalLoss(gamma=gamma)
 
     config = DeepECConfig()
     config.model = model 
