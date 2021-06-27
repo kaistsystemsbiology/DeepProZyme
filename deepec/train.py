@@ -55,6 +55,7 @@ class EarlyStopping:
                 'epoch':epoch,
                 'explainECs':self.explainProts}
         torch.save(ckpt, self.save_name)
+        torch.save(model, self.save_name.replace('checkpoint.pt', 'model.pth'))
         self.val_loss_min = val_loss
 
 
