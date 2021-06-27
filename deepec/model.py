@@ -551,3 +551,55 @@ class ProtBertConvEC(BertForSequenceClassification):
         x = x.view(-1, hidden)
         logits = self.classifier(x)
         return logits
+
+
+class MaskedLinear(nn.Module):
+    def __init__(self, in_dim, out_dim, mask):
+        """
+       :param in_features: number of input features
+       :param out_features: number of output features
+       :param indices_mask: list of two lists containing indices for dimensions 0 and 1, used to create the mask
+       https://discuss.pytorch.org/t/gradient-masking-in-register-backward-hook-for-custom-connectivity-efficient-implementation/12072/88990 
+       """
+        super(MaskedLinear, self).__init__()
+ 
+        def backward_hook(grad):
+            # Clone due to not being allowed to modify in-place gradients
+            out = grad.clone()
+            out[self.mask] = 0
+            return out
+ 
+        self.linear = nn.Linear(in_dim, out_dim)
+        nn.init.xavier_uniform_(self.linear.weight)
+        self.linear.bias.data.fill_(0)
+        
+        self.mask = mask
+        self.linear.weight.data[self.mask] = 0 # zero out bad weights
+        self.linear.weight.register_hook(backward_hook) # hook to zero out bad gradients
+ 
+    def forward(self, input):
+        return self.linear(input)
+
+
+
+class ProtBertEC(BertForSequenceClassification):
+    def __init__(self, config, const, fc_gamma=0):
+        super(ProtBertEC, self).__init__(config)
+        self.explainECs = const['explainProts']
+        self.thirdECs = const['thirdECs']
+        # self.mask = const['mask']
+        self.fc_alpha = 1
+        self.fc_gamma = fc_gamma
+        self.bert = BertModel(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.linear1 = nn.Linear(config.hidden_size, len(self.thirdECs))
+        self.classifier = nn.Linear(len(self.thirdECs), len(self.explainECs))
+        # self.classifier = MaskedLinear(len(self.thirdECs), len(self.explainECs), self.mask)
+        
+        
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
+        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask)
+        pooled_output = self.dropout(pooled_output)
+        pooled_output = self.linear1(pooled_output)
+        logits = self.classifier(pooled_output)
+        return logits
