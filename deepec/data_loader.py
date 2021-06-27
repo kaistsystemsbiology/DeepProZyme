@@ -352,6 +352,10 @@ class DeepECDataset(Dataset):
         seq_ids = self.tokenizer(seq, truncation=True, padding='max_length', max_length=self.max_length)
         
         sample = {key: torch.tensor(val) for key, val in seq_ids.items()}
+
+        if self.pred:
+            return sample
+            
         labels = self.data_Y[idx]
         labels = self.convert2onehot_EC(labels)
         labels = labels.reshape(-1)
