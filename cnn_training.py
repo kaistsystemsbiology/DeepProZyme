@@ -4,7 +4,6 @@ import logging
 # import basic python packages
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_curve, auc, roc_auc_score
 from sklearn.metrics import f1_score, precision_score, recall_score
 
 # import torch packages
@@ -13,13 +12,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from deepec.process_data import read_EC_Fasta, \
-                                getExplainedEC_short, \
-                                convertECtoLevel3
-from deepec.data_loader import ECDataset, ECEmbedDataset
+from deepec.process_data import read_EC_Fasta
+from deepec.data_loader import ECDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train, evalulate
-from deepec.model import DeepEC, DeepEC2, DeepEC3
+from deepec.model import *
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -37,12 +34,12 @@ if __name__ == '__main__':
     num_epochs = options.epoch
     batch_size = options.batch_size
     learning_rate = options.learning_rate
+    gamma = options.gamma
     patience = options.patience
 
     checkpt_file = options.checkpoint
     input_data_file = options.seq_file
 
-    third_level = options.third_level
     num_cpu = options.cpu_num
 
     if not os.path.exists(output_dir):
@@ -63,15 +60,13 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 0
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
                   \tGamma: {gamma}\
                   \tBatch size: {batch_size}\
                   \tLearning rate: {learning_rate}\
-                  \tGPU: {device}\
-                  \tPredict upto 3 level: {third_level}')
+                  \tGPU: {device}')
     logging.info(f'Input file directory: {input_data_file}')
 
 
@@ -96,14 +91,6 @@ if __name__ == '__main__':
     explainECs = list(set(explainECs))
     explainECs.sort()
 
-    if third_level:
-        logging.info('Predict EC number upto third level')
-        explainECs = getExplainedEC_short(explainECs)
-        train_ecs = convertECtoLevel3(train_ecs)
-        val_ecs = convertECtoLevel3(val_ecs)
-        test_ecs = convertECtoLevel3(test_ecs)
-    else:
-        logging.info('Predict EC number upto fourth level')
 
     train_ec_types = []
     for ecs in train_ecs:
@@ -124,19 +111,18 @@ if __name__ == '__main__':
     logging.info(f'Number of ECs in validation data: {len_val_ecs}')
     logging.info(f'Number of ECs in test data: {len_test_ecs}')
 
-    trainDataset = ECEmbedDataset(train_seqs, train_ecs, explainECs)
-    valDataset = ECEmbedDataset(val_seqs, val_ecs, explainECs)
-    testDataset = ECEmbedDataset(test_seqs, test_ecs, explainECs)
+    trainDataset = ECDataset(train_seqs, train_ecs, explainECs)
+    valDataset = ECDataset(val_seqs, val_ecs, explainECs)
+    testDataset = ECDataset(test_seqs, test_ecs, explainECs)
 
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
     # model = DeepEC(out_features=explainECs)
-    model = DeepEC3(out_features=explainECs)
-    # model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
+    model = ConvEC(num_blocks=5, explainProts=explainECs)
+    model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
-    # model = nn.DataParallel(model, device_ids=[2, 3])
     logging.info(f'Model Architecture: \n{model}')
     num_train_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logging.info(f'Number of trainable parameters: {num_train_params}')
