@@ -28,7 +28,7 @@ from deepec.process_data import read_EC_Fasta, \
 from deepec.data_loader import ECEmbedDataset, DeepECDataset
 from deepec.utils import argument_parser, draw, save_losses, FocalLoss, DeepECConfig
 from deepec.train import train_bert, evaluate_bert
-from deepec.model import ProtBertConvEC
+from deepec.model import *
 from transformers import BertConfig
 from transformers import Trainer, TrainingArguments
 
@@ -50,7 +50,8 @@ if __name__ == '__main__':
     batch_size = options.batch_size
     learning_rate = options.learning_rate
     patience = options.patience
-
+    gamma = options.gamma
+    
     checkpt_file = options.checkpoint
     input_data_file = options.seq_file
 
@@ -75,15 +76,14 @@ if __name__ == '__main__':
 
     torch.set_num_threads(num_cpu)
 
-    gamma = 1
+    
 
     logging.info(f'\nInitial Setting\
                   \nEpoch: {num_epochs}\
                   \tGamma: {gamma}\
                   \tBatch size: {batch_size}\
                   \tLearning rate: {learning_rate}\
-                  \tGPU: {device}\
-                  \tPredict upto 3 level: {third_level}')
+                  \tGPU: {device}')
     logging.info(f'Input file directory: {input_data_file}')
 
 
@@ -145,16 +145,17 @@ if __name__ == '__main__':
     validDataloader = DataLoader(valDataset, batch_size=batch_size, shuffle=True)
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
-    config = BertConfig.from_pretrained("Rostlab/prot_bert")
-    config.update(
-        {'hidden_size':128, 
-        'intermediate_size':256,
-        'max_position_embeddings': 1000,
-        'num_attention_heads':8, 
-        'num_hidden_layers':2}
-    )
+    # config = BertConfig.from_pretrained("Rostlab/prot_bert")
+    # config.update(
+    #     {'hidden_size':128, 
+    #     'intermediate_size':256,
+    #     'max_position_embeddings': 1000,
+    #     'num_attention_heads':8, 
+    #     'num_hidden_layers':2}
+    # )
     # model = ProtBertMultiLabelClassification(config, out_features=explainECs)
-    model = ProtBertConvEC(config, out_features=explainECs)
+    # model = ProtBertConvEC(config, out_features=explainECs)
+    model = ProtBertModel(explainECs)
     model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     logging.info(f'Model Architecture: \n{model}')
