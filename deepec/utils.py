@@ -37,6 +37,8 @@ def argument_parser(version=None):
                         default=32, help='Batch size')
     parser.add_argument('-r', '--learning_rate', required=False, type=float,
                         default=1e-3, help='Learning rate')
+    parser.add_argument('-gamma', '--gamma', required=False, type=float,
+                        default=1.0, help='Focal loss gamma')
     parser.add_argument('-p', '--patience', required=False, type=int,
                         default=5, help='Patience limit for early stopping')
     parser.add_argument('-g', '--gpu', required=False, 
