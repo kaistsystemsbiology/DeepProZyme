@@ -603,3 +603,126 @@ class ProtBertEC(BertForSequenceClassification):
         pooled_output = self.linear1(pooled_output)
         logits = self.classifier(pooled_output)
         return logits
+
+
+class ConvEC(nn.Module):
+    def __init__(self, num_blocks, explainProts=[], act='lrelu'):
+        super(ConvEC, self).__init__()
+        self.explainProts = explainProts
+        self.ks = 4
+        self.nf = 256
+        self.dropout = nn.Dropout(p=0.1)
+        if act == 'lrelu':
+            self.act = nn.LeakyReLU()
+        elif act == 'relu':
+            self.act = nn.ReLU()
+        else:
+            print('Wrong activation function assigned. set relu')
+            self.act = nn.ReLU()
+            
+        layers = nn.ModuleList(
+            [nn.Conv2d(1, self.nf, kernel_size=(self.ks, 20), bias=False),
+             nn.BatchNorm2d(self.nf),
+             self.act]
+        )
+        for num in range(num_blocks-1):
+            layers.append(nn.Conv2d(self.nf, self.nf, kernel_size=(self.ks, 1), bias=False))
+            layers.append(nn.BatchNorm2d(self.nf))
+            layers.append(self.act)
+        self.layers = layers
+        
+        self.pool = nn.MaxPool2d(kernel_size=(1000-num_blocks*(self.ks-1) ,1), )
+        self.fc1 = nn.Linear(self.nf, 512)
+        self.fc2 = nn.Linear(512, len(explainProts))
+        
+    
+    def forward(self, x):
+        for i, layer in enumerate(self.layers):
+            if i == 0:
+                out = layer(x)
+            else:
+                out = layer(out)
+            
+        out = self.pool(out)
+        out = out.view(out.size(0), -1)
+        
+        out = self.dropout(self.act((self.fc1(out))))
+        out = self.fc2(out)
+        return out
+    
+    
+    
+class ProtBertStrEC(BertForSequenceClassification):
+    def __init__(self, config, const, fc_gamma=0):
+        super(ProtBertStrEC, self).__init__(config)
+        self.explainECs = const['explainProts']
+        self.fc_alpha = 1
+        self.fc_gamma = fc_gamma
+        self.bert = BertModel(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.linear1 = nn.Linear(config.hidden_size, 512)
+        self.classifier = nn.Linear(512, len(self.explainECs))
+        
+        self.conv1 = nn.Conv2d(config.hidden_size * 2, config.hidden_size, kernel_size=(1, 1))
+        self.conv2 = nn.Conv2d(config.hidden_size, 1, kernel_size=(7, 7), padding=(3, 3))
+        self.clip()
+        
+        self.act = nn.ReLU()
+        
+    def clip(self):
+        # https://github.com/tbepler/protein-sequence-embedding-iclr2019/blob/master/src/models/multitask.py
+        # force the conv layer to be transpose invariant
+        w = self.conv2.weight
+        self.conv2.weight.data[:] = 0.5*(w + w.transpose(2,3))
+    
+    
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, contact=True):
+        attentions, pooled_output = self.bert(input_ids, token_type_ids, attention_mask)
+        pooled_output = self.dropout(pooled_output)
+        pooled_output = self.linear1(pooled_output)
+        logits = self.classifier(pooled_output)
+        # maps = self.predict(attentions, attention_mask)
+        # return logits, maps.view(-1, 1000*1000)
+        return logits, None
+    
+    def predict(self, attentions, attention_mask):
+        masking = attention_mask.detach().clone()
+        bs = masking.size()[0]
+        masking[torch.arange(bs), masking.sum(dim=1)] = 0
+        masking[:,0] = 0
+        masking = masking.view(-1, 1000, 1).expand_as(attentions)
+        z = torch.mul(masking, attentions)
+        z = z.transpose(1, 2)
+
+        # z = torch.zeros_like(attentions)
+        # z[masking==True] += attentions[masking==True]
+        # attentions[masking==False] = 0
+        # z = attentions.transpose(1, 2)
+
+        z_diff = torch.abs(z.unsqueeze(2) - z.unsqueeze(3))
+        z_mul = z.unsqueeze(2)*z.unsqueeze(3)
+        z = torch.cat([z_diff, z_mul], 1) # torch.Size([bs, dim*2, length, length])
+        z = self.act(self.conv1(z))
+        return torch.sigmoid(self.conv2(z))
+
+
+
+class ProtBertModel(nn.Module):
+    def __init__(self, explainECs):
+        super(ProtBertModel, self).__init__()
+        self.explainECs = explainECs
+        self.bert_model = BertModel.from_pretrained("Rostlab/prot_bert", )
+        self.bert_model.requires_grad_(False)
+        
+        self.dropout = nn.Dropout(0.1)
+        self.linear1 = nn.Linear(1024, 1024)
+        self.classifier = nn.Linear(1024, len(self.explainECs))
+        # self.classifier = MaskedLinear(len(self.thirdECs), len(self.explainECs), self.mask)
+        
+        
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None):
+        _, pooled_output = self.bert_model(input_ids, token_type_ids, attention_mask)
+        pooled_output = self.dropout(pooled_output)
+        pooled_output = self.linear1(pooled_output)
+        logits = self.classifier(pooled_output)
+        return logits
