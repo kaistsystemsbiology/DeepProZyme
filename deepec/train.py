@@ -14,6 +14,7 @@ import torch.nn.functional as F
 from sklearn.metrics import roc_curve, auc, roc_auc_score
 from sklearn.metrics import f1_score, precision_score, recall_score
 
+from tqdm.auto import tqdm
 
 
 # early stopping with validation dataset 
@@ -482,7 +483,7 @@ def train_bert_model(config):
     n = 0
 
     model.train()
-    for batch, data in enumerate(train_loader):
+    for batch, data in enumerate(tqdm(train_loader)):
         inputs = {key:val.to(device) for key, val in data.items()}
         optimizer.zero_grad()
         output = model(**inputs)
@@ -505,7 +506,7 @@ def eval_bert_model(config):
 
     model.eval()
     with torch.no_grad():
-        for batch, data in enumerate(val_loader):
+        for batch, data in enumerate(tqdm(val_loader)):
             inputs = {key:val.to(device) for key, val in data.items()}
             output = model(**inputs)
             loss = criterion(output, inputs['labels'])
