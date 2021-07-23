@@ -17,17 +17,7 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.06 wit
 ##Example
 
 
-- Train CNN1
-
-        python cnn1_training.py -o ./output/cnn1 -g cuda:0 -e 30 -b 64 -r 1e-4 -p 3 -c checkpoint.pt 
-
-        python cnn_focal_loss_training.py -i ./Dataset/DeepEC_v2_input_sequences.fa -o ./output/deepec_fl_04 -g cuda:3 -e 50 -b 512 -r 1e-5 -p 5 -third False
-
-- Train CNN2
-
-        python cnn_training.py -i ./Dataset/processedUniRefSeq.fasta -o ./output/ec7_cnn3_01 -g cuda:0 -e 30 -b 128 -r 1e-3 -p 5 -third False
-
-- Train CNN3
+- Train CNN
 
         python cnn_training.py -i ./Dataset/DeepEC_v2_input_sequences.fa -o ./output/deepec_v2_01 -g cuda:0 -e 50 -b 128 -r 1e-3 -p 5 -third False
         python cnn_training.py -o ./output/uniprot_08 -e 30 -p 5 -b 1024 -r 1e-3 -g cuda:0 -i ./Dataset/uniprot_dataset.fa
