@@ -90,17 +90,17 @@ def train_bert_model(config):
         optimizer.zero_grad()
         output, maps = model(**inputs)
         loss_1 = criterion_1(output, inputs['labels'])
-        # loss_2 = criterion_2(maps, data['maps'].to(device))
-        # loss_2 = loss_2/(inputs['attention_mask'].sum(dim=1)-2).pow(2).sum()
-        # loss_2 *= alpha
-        # loss = loss_1 + loss_2
+        loss_2 = criterion_2(maps, data['maps'].to(device))
+        loss_2 = loss_2/(inputs['attention_mask'].sum(dim=1)-2).pow(2).sum()
+        loss_2 *= alpha
+        loss = loss_1 + loss_2
         loss = loss_1
         loss.backward()
         optimizer.step()
 
         train_losses += loss.item()
         losses_1 += loss_1.item()
-        # losses_2 += loss_2.item()
+        losses_2 += loss_2.item()
         n += inputs['labels'].size(0)
     return train_losses/n, losses_1/n, losses_2/n
 
@@ -200,20 +200,20 @@ if __name__ == '__main__':
     trainDataset = DeepContactECDataset(data_X=input_seqs, data_ec=input_ecs, data_map=input_maps, explainECs=explainECs)
     trainDataloader = DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
 
-    config = BertConfig.from_pretrained("Rostlab/prot_bert")
-    config.update(
-        {'hidden_size':128, 
-        'intermediate_size':256,
-        'max_position_embeddings': 1000,
-        'num_attention_heads':8, 
-        'num_hidden_layers':2}
-    )
+    # config = BertConfig.from_pretrained("Rostlab/prot_bert")
+    # config.update(
+    #     {'hidden_size':128, 
+    #     'intermediate_size':256,
+    #     'max_position_embeddings': 1000,
+    #     'num_attention_heads':8, 
+    #     'num_hidden_layers':2}
+    # )
     
-    const = {
-        'explainProts': explainECs,
-    }
+    # const = {
+    #     'explainProts': explainECs,
+    # }
     
-    model = ProtBertStrEC(config, const)
+    model = ProtBertStrEC(explainECs)
     model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     logging.info(f'Model Architecture: \n{model}')
