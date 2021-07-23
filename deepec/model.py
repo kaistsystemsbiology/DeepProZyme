@@ -652,19 +652,18 @@ class ConvEC(nn.Module):
     
     
     
-class ProtBertStrEC(BertForSequenceClassification):
-    def __init__(self, config, const, fc_gamma=0):
-        super(ProtBertStrEC, self).__init__(config)
-        self.explainECs = const['explainProts']
-        self.fc_alpha = 1
-        self.fc_gamma = fc_gamma
-        self.bert = BertModel(config)
-        self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.linear1 = nn.Linear(config.hidden_size, 512)
-        self.classifier = nn.Linear(512, len(self.explainECs))
+class ProtBertStrEC(nn.Module):
+    def __init__(self, explainECs):
+        super(ProtBertStrEC, self).__init__()
+        self.explainECs = explainECs
+        self.bert = BertModel.from_pretrained("Rostlab/prot_bert", )
+        self.bert.requires_grad_(False)
+        self.dropout = nn.Dropout(0.1)
+        self.linear1 = nn.Linear(1024, 1024)
+        self.classifier = nn.Linear(1024, len(self.explainECs))
         
-        self.conv1 = nn.Conv2d(config.hidden_size * 2, config.hidden_size, kernel_size=(1, 1))
-        self.conv2 = nn.Conv2d(config.hidden_size, 1, kernel_size=(7, 7), padding=(3, 3))
+        self.conv1 = nn.Conv2d(1024 * 2, 1024, kernel_size=(1, 1))
+        self.conv2 = nn.Conv2d(1024, 1, kernel_size=(7, 7), padding=(3, 3))
         self.clip()
         
         self.act = nn.ReLU()
@@ -681,8 +680,8 @@ class ProtBertStrEC(BertForSequenceClassification):
         pooled_output = self.dropout(pooled_output)
         pooled_output = self.linear1(pooled_output)
         logits = self.classifier(pooled_output)
-        # maps = self.predict(attentions, attention_mask)
-        # return logits, maps.view(-1, 1000*1000)
+        maps = self.predict(attentions, attention_mask)
+        return logits, maps.view(-1, 1000*1000)
         return logits, None
     
     def predict(self, attentions, attention_mask):
@@ -726,3 +725,50 @@ class ProtBertModel(nn.Module):
         pooled_output = self.linear1(pooled_output)
         logits = self.classifier(pooled_output)
         return logits
+
+
+
+class EmbeddingModel(nn.Module):
+    def __init__(self):
+        super(EmbeddingModel, self).__init__()
+        self.conv = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(3,20), padding=(1,0))
+        self.pos_encoder = PositionalEncoding(d_model=128)
+        self.layer_norm = nn.LayerNorm(normalized_shape=128)
+    
+    def forward(self, x):
+        x = self.conv(x)
+        bs, num, length, _ = x.size()    
+        x = self.pos_encoder(x.transpose(1,2).view(-1, length, num))
+        x = self.layer_norm(x)
+        return x
+    
+
+class PSSMBert(nn.Module):
+    def __init__(self, config, out_features=[]):
+        super(PSSMBert, self).__init__()
+        self.explainECs = out_features
+        self.embedding = EmbeddingModel()
+        bert = list(BertModel(config).children())
+        self.encoder = bert[1]
+        self.pooler = bert[2]
+        
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, len(out_features))
+        nn.init.xavier_uniform_(self.classifier.weight)
+        self.classifier.bias.data.fill_(0)
+        
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, output_attentions=False):
+        x = input_ids.view(-1, 1, 1000, 20).float()
+        extended_mask = self._get_extended_attention_mask(attention_mask)
+        x = self.embedding(x)
+        outputs = self.encoder(x, attention_mask=extended_mask, output_attentions=output_attentions)
+        pooled_output = self.pooler(outputs[0])
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+        if output_attentions:
+            return logits, outputs['attentions']
+        else:
+            return logits
+    
+    def _get_extended_attention_mask(self, attention_mask):
+        return attention_mask[:, None, None, :].float()
