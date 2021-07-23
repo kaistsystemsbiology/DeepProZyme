@@ -3,7 +3,7 @@ import random
 import logging
 # import basic python packages
 import numpy as np
-
+from tqdm.auto import tqdm
 # import torch packages
 import torch
 import torch.nn as nn
@@ -59,7 +59,7 @@ if __name__ == '__main__':
         y_score = torch.zeros([len(input_seqs), len(explainECs)])
         logging.info('Prediction starts on the dataset')
         cnt = 0
-        for batch, data in enumerate(proteinDataloader):
+        for batch, data in enumerate(tqdm(proteinDataloader)):
             inputs = {key:val.to(device) for key, val in data.items()}
             output = model(**inputs)
             prediction = torch.sigmoid(output) > 0.5
