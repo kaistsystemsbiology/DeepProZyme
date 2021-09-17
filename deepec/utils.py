@@ -2,12 +2,11 @@ import re
 import logging
 import argparse
 
+import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-
-# import basic python packages
-import numpy as np
+from tqdm.auto import tqdm
 
 from Bio import SeqIO
 
@@ -153,3 +152,43 @@ def _getCommonECs(ec3_pred, ec4_pred, ec2ec_map, device):
         common_pred[i] = common_EC
     return common_pred
 
+
+def run_neural_net(model, proteinDataloader, pred_thrd, device):
+        num_data = len(proteinDataloader.dataset)
+        num_ecs = len(proteinDataloader.dataset.map_EC)
+        pred_thrd = pred_thrd.to(device)
+        model.eval() # training session with train dataset
+        with torch.no_grad():
+            y_pred = torch.zeros([num_data, num_ecs])
+            y_score = torch.zeros([num_data, num_ecs])
+            logging.info('Deep leanrning prediction starts on the dataset')
+            cnt = 0
+            for batch, data in enumerate(tqdm(proteinDataloader)):
+                inputs = {key:val.to(device) for key, val in data.items()}
+                output = model(**inputs)
+                output = torch.sigmoid(output)
+                prediction = output > pred_thrd
+                prediction = prediction.float()
+                step = data['input_ids'].shape[0]
+                y_pred[cnt:cnt+step] = prediction.cpu()
+                y_score[cnt:cnt+step] = output.cpu()
+                cnt += step
+            logging.info('Deep learning prediction ended on test dataset')
+        return y_pred, y_score
+
+
+def save_dl_result(y_pred, y_score, input_ids, explainECs, output_dir):
+    failed_cases = []
+    with open(f'{output_dir}/DL_prediction_result.txt', 'w') as fp:
+        fp.write('sequence_ID\tprediction\tscore\n')
+        for i, ith_pred in enumerate(y_pred):
+            nonzero_preds = torch.nonzero(ith_pred, as_tuple=False)
+            if len(nonzero_preds) == 0:
+                fp.write(f'{input_ids[i]}\tNone\t0.0\n')
+                failed_cases.append(input_ids[i])
+                continue
+            for j in nonzero_preds:
+                pred_ec = explainECs[j]
+                pred_score = y_score[i][j].item()
+                fp.write(f'{input_ids[i]}\t{pred_ec}\t{pred_score:0.4f}\n')
+    return failed_cases
