@@ -8,6 +8,8 @@ import torch.nn.functional as F
 # from torch.nn import TransformerEncoder, TransformerEncoderLayer
 from transformers import BertModel, BertForSequenceClassification
 
+from einops import rearrange, repeat
+from einops.layers.torch import Rearrange, Reduce
 
 class CNN0(nn.Module):
     '''=
@@ -731,7 +733,8 @@ class ProtBertModel(nn.Module):
 class EmbeddingModel(nn.Module):
     def __init__(self):
         super(EmbeddingModel, self).__init__()
-        self.conv = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(3,20), padding=(1,0))
+        # self.conv = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(3,20), padding=(1,0))
+        self.conv = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(1,20),)
         self.pos_encoder = PositionalEncoding(d_model=128)
         self.layer_norm = nn.LayerNorm(normalized_shape=128)
     
@@ -753,11 +756,14 @@ class PSSMBert(nn.Module):
         self.pooler = bert[2]
         
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, len(out_features))
+        self.fc1 = nn.Linear(config.hidden_size, 512)
+        self.classifier = nn.Linear(512, len(out_features))
+        self.act = nn.ReLU()
+        # self.classifier = nn.Linear(config.hidden_size, len(out_features))
         nn.init.xavier_uniform_(self.classifier.weight)
         self.classifier.bias.data.fill_(0)
         
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, output_attentions=False):
+    def forward(self, input_ids, attention_mask=None, labels=None, output_attentions=False):
         x = input_ids.view(-1, 1, 1000, 20).float()
         extended_mask = self._get_extended_attention_mask(attention_mask)
         x = self.embedding(x)
@@ -772,3 +778,331 @@ class PSSMBert(nn.Module):
     
     def _get_extended_attention_mask(self, attention_mask):
         return attention_mask[:, None, None, :].float()
+
+
+class PSSMCNN(nn.Module):
+    def __init__(self, num_blocks=5, out_features=[]):
+        super(PSSMCNN, self).__init__()
+        self.explainECs = out_features
+        self.ks = 4
+        self.nf = 256
+        self.dropout = nn.Dropout(0.1)
+        self.act = nn.ReLU()
+
+        layers = nn.ModuleList(
+            [
+                nn.Conv2d(1, self.nf, kernel_size=(self.ks, 20)),
+                nn.BatchNorm2d(self.nf),
+                nn.ReLU()
+            ]
+        )
+        for _ in range(num_blocks-1):
+            layers.append(nn.Conv2d(self.nf, self.nf, kernel_size=(self.ks, 1)))
+            layers.append(nn.BatchNorm2d(self.nf))
+            layers.append(nn.ReLU())
+
+        self.layers = layers
+        self.pool = nn.MaxPool2d(kernel_size=(1000-num_blocks*(self.ks-1), 1))
+        self.fc1 = nn.Linear(self.nf, 512)
+        self.fc2 = nn.Linear(512, len(out_features))
+        
+        self.init_weights()
+
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+                m.bias.data.fill_(0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                m.bias.data.fill_(0)
+        
+    def forward(self, x):
+        for i, layer in enumerate(self.layers):
+            if i == 0:
+                out = layer(x)
+            else:
+                out = layer(out)  
+        out = self.pool(out)
+        out = out.view(out.size(0), -1)
+        out = self.dropout(self.act((self.fc1(out))))
+        out = self.fc2(out)
+        return out
+    
+
+class PSSMDeepEC(nn.Module):
+    def __init__(self, num_blocks=5, out_features=[]):
+        super(PSSMDeepEC, self).__init__()
+        self.explainECs = out_features
+        self.ks = 4
+        self.nf = 256
+        self.dropout = nn.Dropout(0.1)
+        self.act = nn.ReLU()
+
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(4,20))
+        self.conv2 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(8,20))
+        self.conv3 = nn.Conv2d(in_channels=1, out_channels=128, kernel_size=(16,20))
+        self.batchnorm1 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm2 = nn.BatchNorm2d(num_features=128)
+        self.batchnorm3 = nn.BatchNorm2d(num_features=128)
+        self.pool1 = nn.MaxPool2d(kernel_size=(1000-4+1,1), stride=1)
+        self.pool2 = nn.MaxPool2d(kernel_size=(1000-8+1,1), stride=1)
+        self.pool3 = nn.MaxPool2d(kernel_size=(1000-16+1,1), stride=1)
+
+        self.fc1 = nn.Linear(in_features=128*3, out_features=512)
+        self.bn1 = nn.BatchNorm1d(num_features=512)
+        self.fc2 = nn.Linear(in_features=512, out_features=len(out_features))
+        self.bn2 = nn.BatchNorm1d(num_features=len(out_features))
+        self.relu = nn.ReLU()
+        self.out_act = nn.Sigmoid()
+        self.init_weights()
+
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+
+        
+    def forward(self, x):
+        x1 = self.relu(self.batchnorm1(self.conv1(x)))
+        x2 = self.relu(self.batchnorm2(self.conv2(x)))
+        x3 = self.relu(self.batchnorm3(self.conv3(x)))
+        x1 = self.pool1(x1)
+        x2 = self.pool2(x2)
+        x3 = self.pool3(x3)
+        x = torch.cat((x1, x2, x3), dim=1)
+        x = x.view(-1, 128*3)
+        x = self.relu(self.bn1(self.fc1(x)))
+        x = self.bn2(self.fc2(x))
+        return x
+
+
+
+class PSSMBertCNN(nn.Module):
+    def __init__(self, config, out_features=[]):
+        super(PSSMBertCNN, self).__init__()
+        self.explainECs = out_features
+        self.embedding = EmbeddingModel()
+        bert = list(BertModel(config).children())
+        self.encoder = bert[1]
+        # self.pooler = bert[2]
+        
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        
+        
+        self.act = nn.ReLU()
+
+        self.conv1 = nn.Conv2d(
+            in_channels=config.num_hidden_layers*config.num_attention_heads, out_channels=64,
+            kernel_size=(5, 5), stride=(5, 5)
+        )
+        self.conv2 = nn.Conv2d(
+            in_channels=64, out_channels=128,
+            kernel_size=(5, 5), stride=(2, 2),
+        )
+        self.conv3 = nn.Conv2d(
+            in_channels=128, out_channels=256,
+            kernel_size=(5, 5), stride=(2, 2)
+        )
+        self.bn1 = nn.BatchNorm2d(64)
+        self.bn2 = nn.BatchNorm2d(128)
+        self.bn3 = nn.BatchNorm2d(256)
+        self.pool1 = nn.MaxPool2d(kernel_size=(4, 4), stride=(2, 2))
+        self.pool2 = nn.MaxPool2d(kernel_size=(4, 4), stride=(2, 2))
+        self.pool3 = nn.MaxPool2d(kernel_size=(3, 3), stride=(3, 3))
+        self.classifier = nn.Linear(256*3*3, len(out_features))
+
+        nn.init.xavier_uniform_(self.classifier.weight)
+        self.classifier.bias.data.fill_(0)
+        
+    def forward(self, input_ids, attention_mask=None, labels=None, output_attentions=True):
+        x = input_ids.view(-1, 1, 1000, 20).float()
+        extended_mask = self._get_extended_attention_mask(attention_mask)
+        x = self.embedding(x)
+        outputs = self.encoder(x, attention_mask=extended_mask, output_attentions=output_attentions)
+        
+        logits = torch.cat(outputs[-1], dim=1)
+        logits = self.act(self.bn1(self.conv1(logits)))
+        logits = self.pool1(logits)
+        logits = self.act(self.bn2(self.conv2(logits)))
+        logits = self.pool2(logits)
+        logits = self.act(self.bn3(self.conv3(logits)))
+        logits = self.pool3(logits)
+        logits = self.classifier(logits.view(-1, 256*3*3))
+        if output_attentions:
+            return logits
+            # return logits, outputs['attentions']
+        else:
+            return logits
+    
+    def _get_extended_attention_mask(self, attention_mask):
+        return attention_mask[:, None, None, :].float()
+
+
+
+class PatchEmbedding(nn.Module):
+    def __init__(self, patch_size: tuple = (8, 20), stride_size: tuple = (8, 1), emb_size: int = 160):
+        self.patch_size = patch_size
+        super().__init__()
+        self.projection = nn.Sequential(
+            # using a conv layer instead of a linear one -> performance gains
+            nn.Conv2d(in_channels=1, out_channels=emb_size, kernel_size=patch_size, stride=stride_size),
+            Rearrange('b e (h) (w) -> b (h w) e'),
+        )
+        self.cls_token = nn.Parameter(torch.randn(1,1, emb_size))
+        self.positions = nn.Parameter(torch.randn((1000 // 8) + 1, emb_size))
+
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        b, _, _, _ = x.shape
+        x = self.projection(x)
+        cls_tokens = repeat(self.cls_token, '() n e -> b n e', b=b)
+        x = torch.cat([cls_tokens, x], dim=1)
+        x += self.positions
+        return x
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, emb_size: int = 160, num_heads: int = 8, dropout: float = 0):
+        super().__init__()
+        self.emb_size = emb_size
+        self.num_heads = num_heads
+        # fuse the queries, keys and values in one matrix
+        self.qkv = nn.Linear(emb_size, emb_size * 3)
+        self.att_drop = nn.Dropout(dropout)
+        self.projection = nn.Linear(emb_size, emb_size)
+
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+        
+    def forward(self, x : torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+        # split keys, queries and values in num_heads
+        qkv = rearrange(self.qkv(x), "b n (h d qkv) -> (qkv) b h n d", h=self.num_heads, qkv=3)
+        queries, keys, values = qkv[0], qkv[1], qkv[2]
+        # sum up over the last axis
+        energy = torch.einsum('bhqd, bhkd -> bhqk', queries, keys) # batch, num_heads, query_len, key_len
+        if mask is not None:
+            fill_value = torch.finfo(torch.float32).min
+            energy.mask_fill(~mask, fill_value)
+            
+        scaling = self.emb_size ** (1/2)
+        att = F.softmax(energy, dim=-1) / scaling
+        att = self.att_drop(att)
+        # sum up over the third axis
+        out = torch.einsum('bhal, bhlv -> bhav ', att, values)
+        out = rearrange(out, "b h n d -> b n (h d)")
+        out = self.projection(out)
+        return out
+
+
+
+class ResidualAdd(nn.Module):
+    def __init__(self, fn):
+        super().__init__()
+        self.fn = fn
+        
+    def forward(self, x, **kwargs):
+        res = x
+        x = self.fn(x, **kwargs)
+        x += res
+        return x
+    
+    
+class FeedForwardBlock(nn.Sequential):
+    def __init__(self, emb_size: int, expansion: int = 4, drop_p: float = 0.):
+        super().__init__(
+            nn.Linear(emb_size, expansion * emb_size),
+            nn.GELU(),
+            nn.Dropout(drop_p),
+            nn.Linear(expansion * emb_size, emb_size),
+        )
+
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+
+
+class TransformerEncoderBlock(nn.Sequential):
+    def __init__(self,
+                 emb_size: int = 160,
+                 drop_p: float = 0.,
+                 forward_expansion: int = 4,
+                 forward_drop_p: float = 0.,
+                 ** kwargs):
+        super().__init__(
+            ResidualAdd(nn.Sequential(
+                nn.LayerNorm(emb_size),
+                MultiHeadAttention(emb_size, **kwargs),
+                nn.Dropout(drop_p)
+            )),
+            ResidualAdd(nn.Sequential(
+                nn.LayerNorm(emb_size),
+                FeedForwardBlock(
+                    emb_size, expansion=forward_expansion, drop_p=forward_drop_p),
+                nn.Dropout(drop_p)
+            )
+            ))
+
+
+class TransformerEncoder(nn.Sequential):
+    def __init__(self, depth: int = 12, **kwargs):
+        super().__init__(*[TransformerEncoderBlock(**kwargs) for _ in range(depth)])
+        
+        
+class ClassificationHead(nn.Sequential):
+    def __init__(self, emb_size: int = 160, n_classes: int = 2000):
+        super().__init__(
+            Reduce('b n e -> b e', reduction='mean'),
+            nn.LayerNorm(emb_size), 
+            nn.Linear(emb_size, emb_size),
+            nn.LayerNorm(emb_size),
+            nn.Linear(emb_size, n_classes))
+
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.xavier_uniform_(m.weight)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+
+
+class ViT(nn.Sequential):
+    '''https://github.com/FrancescoSaverioZuppichini/ViT'''
+    def __init__(self,     
+                patch_size: tuple = (8, 20),
+                stride_size: tuple = (8, 1),
+                emb_size: int = 160,
+                depth: int = 12,
+                explainECs: list = [],
+                **kwargs):
+        super().__init__(
+            PatchEmbedding(patch_size, stride_size, emb_size),
+            TransformerEncoder(depth, emb_size=emb_size, **kwargs),
+            ClassificationHead(emb_size, len(explainECs))
+        )
+        self.explainECs = explainECs
