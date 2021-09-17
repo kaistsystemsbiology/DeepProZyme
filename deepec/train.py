@@ -35,18 +35,19 @@ class EarlyStopping:
 
         if self.best_score is None:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, epoch)
+            self.save_checkpoint(val_loss, model, optimizer, epoch, best=True)
         elif score < self.best_score - self.delta:
             self.counter += 1
+            self.save_checkpoint(val_loss, model, optimizer, epoch, best=False)
             logging.info(f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
                 self.early_stop = True
         else:
             self.best_score = score
-            self.save_checkpoint(val_loss, model, optimizer, epoch)
+            self.save_checkpoint(val_loss, model, optimizer, epoch, best=True)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, model, optimizer, epoch):
+    def save_checkpoint(self, val_loss, model, optimizer, epoch, best=True):
         if self.verbose:
             logging.info(f'Epoch {epoch}: Validation loss decreased ({self.val_loss_min:.12f} --> {val_loss:.12f}).  Saving model ...')
         
@@ -56,7 +57,9 @@ class EarlyStopping:
                 'epoch':epoch,
                 'explainECs':self.explainProts}
         torch.save(ckpt, self.save_name)
-        torch.save(model, self.save_name.replace('checkpoint.pt', 'model.pth'))
+        if best:
+            torch.save(model, self.save_name.replace('checkpoint.pt', 'model.pth'))
+        torch.save(model, self.save_name.replace('checkpoint.pt', f'model_{epoch}.pth'))
         self.val_loss_min = val_loss
 
 
@@ -70,7 +73,7 @@ def train_model(config):
     n = 0
 
     model.train()
-    for batch, (data, label) in enumerate(train_loader):
+    for batch, (data, label) in enumerate(tqdm(train_loader)):
         data = data.float().to(device)
         label = label.float().to(device)
         optimizer.zero_grad()
@@ -94,7 +97,7 @@ def eval_model(config):
 
     model.eval()
     with torch.no_grad():
-        for batch, (data, label) in enumerate(val_loader):
+        for batch, (data, label) in enumerate(tqdm(val_loader)):
             data = data.float().to(device)
             label = label.float().to(device)
             output = model(data)
@@ -118,7 +121,7 @@ def train(config):
     avg_valid_losses = torch.zeros(n_epochs).to(device)
     
     logging.info('Training start')
-    for epoch in range(n_epochs):
+    for epoch in tqdm(range(n_epochs)):
         train_loss = train_model(config)
         valid_loss = eval_model(config)
         if config.scheduler != None:
@@ -148,7 +151,7 @@ def evalulate(config):
         y_true = torch.zeros([num_data, len_ECs])
         logging.info('Prediction starts on test dataset')
         cnt = 0
-        for batch, (data, label) in enumerate(config.test_source):
+        for batch, (data, label) in enumerate(tqdm(config.test_source)):
             data = data.float().to(device)
             label = label.float()
             output = model(data)
