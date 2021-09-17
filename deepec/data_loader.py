@@ -467,15 +467,135 @@ class PSSMDataset(Dataset):
         x_len = x.shape[0]
         x = np.vstack((x, np.zeros((1000-x_len, 20))))
         x_mask = np.hstack((np.ones(x_len), np.zeros(1000-x_len)))
+
+
+        sample = {
+            'input_ids': torch.tensor(x),
+            'attention_mask': torch.tensor(x_mask),
+        }
+
+        if self.pred:
+            return sample
         
         labels = self.data_Y[x_id]
         labels = self.convert2onehot_EC(labels)
         labels = labels.reshape(-1)
         
+        sample['labels'] = torch.tensor(labels)
+        
+        return sample
+
+
+class PSSMCNNDataset(Dataset):
+    def __init__(self, data_X, data_Y, pssm_data, explainECs, max_length=1000, pred=False):
+        self.max_length = max_length
+        self.data_X = data_X
+        self.data_Y = data_Y
+        self.pssm_data = pssm_data
+        self.pred = pred
+        self.map_EC = self.getECmap(explainECs)
+        
+        
+    def __len__(self):
+        return len(self.data_X)
+    
+    
+    def getECmap(self, explainECs):
+        ec_vocab = list(set(explainECs))
+        ec_vocab.sort()
+        map = {}
+        for i, ec in enumerate(ec_vocab):
+            baseArray = np.zeros(len(ec_vocab))
+            baseArray[i] = 1
+            map[ec] = baseArray
+        return map
+    
+
+    def convert2onehot_EC(self, EC):
+        map_EC = self.map_EC
+        single_onehot = np.zeros(len(map_EC))
+        for each_EC in EC:
+            single_onehot += map_EC[each_EC]
+        return single_onehot
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()  
+        
+        x_id = self.data_X[idx]
+        x = self.pssm_data[x_id]
+        x_len = x.shape[0]
+        x = np.vstack((x, np.zeros((1000-x_len, 20))))
+        x = x.reshape((1,) + x.shape)
+
+        if self.pred:
+            return torch.tensor(x)
+        
+        labels = self.data_Y[x_id]
+        labels = self.convert2onehot_EC(labels)
+        labels = labels.reshape(-1)
+        
+        return torch.tensor(x), torch.tensor(labels)
+
+
+
+class PSSMMultipleDataset(Dataset):
+    def __init__(self, data_X, data_Y, pssm_data, id2file, explainECs, max_length=1000, pred=False):
+        self.max_length = max_length
+        self.data_X = data_X
+        self.data_Y = data_Y
+        self.pssm_data = pssm_data
+        self.id2file = id2file
+        self.pred = pred
+        self.map_EC = self.getECmap(explainECs)
+        
+        
+    def __len__(self):
+        return len(self.data_X)
+    
+    
+    def getECmap(self, explainECs):
+        ec_vocab = list(set(explainECs))
+        ec_vocab.sort()
+        map = {}
+        for i, ec in enumerate(ec_vocab):
+            baseArray = np.zeros(len(ec_vocab))
+            baseArray[i] = 1
+            map[ec] = baseArray
+        return map
+    
+
+    def convert2onehot_EC(self, EC):
+        map_EC = self.map_EC
+        single_onehot = np.zeros(len(map_EC))
+        for each_EC in EC:
+            single_onehot += map_EC[each_EC]
+        return single_onehot
+    
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()  
+        
+        x_id = self.data_X[idx]
+        file_num = self.id2file[x_id]
+        x = self.pssm_data[file_num][x_id]
+        x_len = x.shape[0]
+        x = np.vstack((x, np.zeros((1000-x_len, 20))))
+        x_mask = np.hstack((np.ones(x_len), np.zeros(1000-x_len)))
+
+
         sample = {
             'input_ids': torch.tensor(x),
             'attention_mask': torch.tensor(x_mask),
-            'labels': torch.tensor(labels)
         }
+
+        if self.pred:
+            return sample
+        
+        labels = self.data_Y[x_id]
+        labels = self.convert2onehot_EC(labels)
+        labels = labels.reshape(-1)
+        
+        sample['labels'] = torch.tensor(labels)
         
         return sample
