@@ -120,7 +120,7 @@ if __name__ == '__main__':
     testDataloader = DataLoader(testDataset, batch_size=batch_size, shuffle=False)
 
     # model = DeepEC(out_features=explainECs)
-    model = ConvEC(num_blocks=5, explainProts=explainECs)
+    model = ConvEC(num_blocks=5, explainProts=explainECs, act='relu')
     model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
     model = model.to(device)
     logging.info(f'Model Architecture: \n{model}')
