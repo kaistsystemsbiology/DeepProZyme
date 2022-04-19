@@ -1,4 +1,3 @@
-import re
 import logging
 import argparse
 
@@ -8,16 +7,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
 
-from Bio import SeqIO
 
 # import torch packages
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-# import scikit learn packages
-from sklearn.metrics import roc_curve, auc, roc_auc_score
-from sklearn.metrics import f1_score, precision_score, recall_score
 
 
 def argument_parser(version=None):
@@ -133,24 +127,7 @@ class DeepECConfig():
         self.val_source = val_source
         self.test_source = test_source
 
-def _getEC32EC4map(explainECs_short, explainECs):
-    result = torch.zeros((len(explainECs), len(explainECs_short)))
-    for ec4_ind, ec4 in enumerate(explainECs):
-        tmp = torch.zeros(len(explainECs_short))
-        for i, ec3 in enumerate(explainECs_short):
-            if ec4.startswith(ec3):
-                tmp[i] = 1
-        result[ec4_ind] = tmp
-    return result
 
-
-def _getCommonECs(ec3_pred, ec4_pred, ec2ec_map, device):
-    common_pred = torch.zeros(ec4_pred.shape).to(device)
-    for i in range(len(ec4_pred)):
-        ec4_activemap = torch.matmul(ec2ec_map, ec3_pred[i])
-        common_EC = ec4_activemap * ec4_pred[i]
-        common_pred[i] = common_EC
-    return common_pred
 
 
 def run_neural_net(model, proteinDataloader, pred_thrd, device):

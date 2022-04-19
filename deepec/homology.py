@@ -9,12 +9,6 @@ def run_blastp(target_fasta, blastp_result, db_dir, threads=1):
         shell=True, 
         stderr=subprocess.STDOUT
     )
-    
-    # subprocess.call(
-    #     "blastp -db %s -query %s -out %s -num_threads %s -outfmt '6 qseqid sseqid evalue score qlen slen length pident'"%(db_dir, target_fasta, blastp_result, threads), 
-    #     shell=True, 
-    #     stderr=subprocess.STDOUT
-    # )
     logging.info('BLASTp prediction ended on the dataset')
 
 
