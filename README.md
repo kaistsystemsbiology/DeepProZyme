@@ -1,41 +1,23 @@
-#DeepEC reconstruction
+#DeepEC_v2 reconstruction
 ##Procedure
 
 **Note**: 
-This source code was developed in Linux, and has been tested in Ubuntu 16.06 with Python 3.7.
+This source code was developed in Linux, and has been tested in Ubuntu 16.04 with Python 3.6.
 
 1. Clone the repository
 
-        git clone https://anlito@bitbucket.org/anlito/deepec_2.git
+        git clone https://github.com/kaistsystemsbiology/DeepZyme.git
 
 2. Create and activate virtual environment
 
         conda env create -f environment.yml
-        conda activate torch_env
+        conda activate th_env
 
 
 ##Example
 
 
-- Train CNN
+- Run DeepEC
 
-        python cnn_training.py -i ./Dataset/DeepEC_v2_input_sequences.fa -o ./output/deepec_v2_01 -g cuda:0 -e 50 -b 128 -r 1e-3 -p 5 -third False
-        python cnn_training.py -o ./output/uniprot_08 -e 30 -p 5 -b 1024 -r 1e-3 -g cuda:0 -i ./Dataset/uniprot_dataset.fa
-
-- Evaluate DeepEC
-
-        python deepec_evaluate.py -o ./output/deepec_evaluation -g cuda:0 -b 1024 -c1 ./output/cnn1_01/checkpoint.pt -c2 ./output/ec7_cnn2_01/checkpoint.pt -c3 ./output/ec7_cnn3_03/checkpoint.pt -t ./Dataset/processedUniRefSeq.fasta
-
-
-- Run DeepEC predicion
-
-        python cnn_running.py -enz ./Dataset/example_tf.fasta -ckpt ./output/ec7_cnn3_03/checkpoint.pt -o ./output/ec7_cnn3_03/prediction_result -g cuda:0
-
-
-- Train short transformer
-
-        python transformer_training.py -i ./Dataset/input_dataset.fa -o ./output/transformer_short_04 -e 50 -p 5 -b 256 -r 1e-3 -g cuda:2 
-
-- Run short transformer
-
-        python transformer_running.py -i ./Dataset/analysis_sequences/substrate_change_seqs.fa -o ./output/transformer_short_09 -ckpt ./output/transformer_short_09/checkpoint.pt -g cuda:0
+        python run_deepec_v2.py -i ./example/mdh_ecoli.fa -o ./example/results -g cpu -b 128 -cpu 2
+        python run_deepec_v2.py -i ./example/mdh_ecoli.fa -o ./example/results -g cuda:3 -b 128 -cpu 2
