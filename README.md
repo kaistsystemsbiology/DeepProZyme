@@ -13,6 +13,12 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.04 wit
         conda env create -f environment.yml
         conda activate th_env
 
+3. To use gpus properly, install the pytorch and cuda for your gpus. This code was tested on pytorch=1.7.0 using cuda version 10.2
+
+4. To use homologous search using DIAMOND, install [diamond](https://github.com/bbuchfink/diamond/wiki). We recommed to use conda
+
+        conda install -c bioconda diamond
+
 
 ##Example
 
