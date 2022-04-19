@@ -1,4 +1,4 @@
-name: th_env
+name: deepecv2
 channels:
   - pytorch
   - conda-forge
@@ -190,4 +190,3 @@ dependencies:
     - torchvision==0.8.2
     - tqdm==4.53.0
     - transformers==3.5.1
-prefix: /data/gbkim/anaconda3/envs/th_env
