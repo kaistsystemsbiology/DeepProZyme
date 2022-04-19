@@ -64,7 +64,7 @@ if __name__ == '__main__':
                 seq = input_seqs[idx]
                 fp.write(f'>{seq_id}\n{seq}\n')
 
-        run_blastp(blastp_input, blastp_tmp_output, './Dataset/swissprot_enzyme_diamond', threads=num_cpu)
+        run_blastp(blastp_input, blastp_tmp_output, './model/swissprot_enzyme_diamond', threads=num_cpu)
         blastp_pred = read_best_blast_result(blastp_tmp_output)
         
         with open(blastp_output, 'w') as fp:
