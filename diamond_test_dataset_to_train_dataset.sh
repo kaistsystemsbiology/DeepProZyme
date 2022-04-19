@@ -1,0 +1,10 @@
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_0.fa -o ./analyze/comparison_data/diamond_test_to_train_0.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_1.fa -o ./analyze/comparison_data/diamond_test_to_train_1.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_2.fa -o ./analyze/comparison_data/diamond_test_to_train_2.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_3.fa -o ./analyze/comparison_data/diamond_test_to_train_3.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_4.fa -o ./analyze/comparison_data/diamond_test_to_train_4.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_5.fa -o ./analyze/comparison_data/diamond_test_to_train_5.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_6.fa -o ./analyze/comparison_data/diamond_test_to_train_6.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_7.fa -o ./analyze/comparison_data/diamond_test_to_train_7.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_8.fa -o ./analyze/comparison_data/diamond_test_to_train_8.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
+~/diamond blastp -d ./Dataset/uniprot_dataset_train -q ./Dataset/uniprot_dataset_test_9.fa -o ./analyze/comparison_data/diamond_test_to_train_9.txt -p 5 --outfmt 6 qseqid sseqid evalue score pident
