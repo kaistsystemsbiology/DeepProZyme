@@ -16,3 +16,4 @@ not_used_data/
 logs/
 prot_bert_*
 analyze/*
+results/
