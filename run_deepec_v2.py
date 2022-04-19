@@ -18,9 +18,6 @@ logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s-%(name)s-%(levelname)s-%(message)s')
 
 
-'''
-python run_deepec_v2.py -i ./Dataset/analysis_seqs/swissprot_20180412_20210531.fa -o ./output/bert_05/deepec_v2_new_seq -g cuda:3 -b 128 -cpu 2
-'''
 if __name__ == '__main__':
     parser = argument_parser()
     options = parser.parse_args()
@@ -41,7 +38,7 @@ if __name__ == '__main__':
         os.makedirs((output_dir+'/tmp'))
 
     
-    model = torch.load('./Dataset/model.pth')
+    model = torch.load('./model/model.pth')
     model = model.to(device)
     explainECs = model.explainECs
     pred_thrd = model.thresholds
