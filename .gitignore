@@ -1,5 +1,5 @@
 *.ipynb
-!run_DeepEC_in_colab.ipynb
+!run_DeepECtransformer_in_colab.ipynb
 Dataset/
 *.log
 *.pyc
