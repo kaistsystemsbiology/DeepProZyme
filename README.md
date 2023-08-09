@@ -6,7 +6,7 @@ This source code was developed in Linux, and has been tested in Ubuntu 16.04 wit
 
 1. Clone the repository
 
-        git clone https://github.com/kaistsystemsbiology/DeepZyme.git
+        git clone https://github.com/kaistsystemsbiology/DeepProZyme.git
 
 2. Create and activate virtual environment
 
