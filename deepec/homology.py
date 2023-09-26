@@ -5,7 +5,7 @@ import subprocess
 def run_blastp(target_fasta, blastp_result, db_dir, threads=1):
     logging.info('BLASTp prediction starts on the dataset')
     subprocess.call(
-        "~/diamond blastp -d %s -q %s -o %s --threads %s --id 50 --outfmt 6 qseqid sseqid evalue score qlen slen length pident"%(db_dir, target_fasta, blastp_result, threads), 
+        "diamond blastp -d %s -q %s -o %s --threads %s --id 50 --outfmt 6 qseqid sseqid evalue score qlen slen length pident"%(db_dir, target_fasta, blastp_result, threads), 
         shell=True, 
         stderr=subprocess.STDOUT
     )

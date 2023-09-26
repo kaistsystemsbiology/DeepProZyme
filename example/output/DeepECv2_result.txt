@@ -1,0 +1,2 @@
+sequence_ID	prediction	score
+P61889|MDH_ECOLI	EC:1.1.1.37	0.9987
